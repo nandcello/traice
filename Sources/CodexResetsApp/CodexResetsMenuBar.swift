@@ -25,12 +25,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastRefreshStartedAt: Date?
     private var lastSuccessfulSnapshot: CodexUsageSnapshot?
     private var lastDisplaySignature: String?
+    private var menuBarState = CodexUsageMenuBarState()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
         if let button = statusItem.button {
-            button.title = "5h -- W --"
+            button.title = menuBarState.title
             button.toolTip = "Codex usage"
         }
 
@@ -56,9 +57,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let startedAt = Date()
         lastRefreshStartedAt = startedAt
-        if showLoading {
-            statusItem.button?.title = "5h ... W ..."
-        }
+        menuBarState.beginRefresh(showLoading: showLoading)
+        statusItem.button?.title = menuBarState.title
         refreshTask?.cancel()
 
         refreshTask = Task { [weak self] in
@@ -96,8 +96,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             WidgetCenter.shared.reloadAllTimelines()
         }
 
-        statusItem.button?.title = "5h \(display.primaryPercent) W \(display.weeklyPercent)"
-        statusItem.button?.toolTip = "Codex usage: 5h \(display.primaryPercent), weekly \(display.weeklyPercent)"
+        menuBarState.render(display)
+        statusItem.button?.title = menuBarState.title
+        statusItem.button?.toolTip = CodexUsageMenuBarPresentation.toolTip(for: display)
 
         let menu = NSMenu()
         menu.delegate = self
@@ -142,7 +143,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func renderError(_ error: Error) {
-        statusItem.button?.title = "5h ? W ?"
+        menuBarState.renderError()
+        statusItem.button?.title = menuBarState.title
         statusItem.button?.toolTip = error.localizedDescription
 
         let menu = NSMenu()
@@ -172,8 +174,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func refreshFromMenu() {
-        setLoadingMenu()
-        refresh(showLoading: true, force: true)
+        refresh(showLoading: false, force: true)
     }
 
     @objc private func openUsageSettings() {

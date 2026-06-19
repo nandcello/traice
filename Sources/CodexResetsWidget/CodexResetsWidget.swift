@@ -43,7 +43,7 @@ struct CodexResetsProvider: TimelineProvider {
 
     private func loadEntry() async -> CodexResetsEntry {
         let checkedAt = Date()
-        if let cachedSnapshot = CodexUsageSnapshotStore.loadFreshSnapshot(now: checkedAt) {
+        if let cachedSnapshot = CodexUsageSnapshotStore.loadCachedSnapshot() {
             return CodexResetsEntry(date: cachedSnapshot.checkedAt, state: .success(cachedSnapshot))
         }
 

@@ -106,12 +106,16 @@ struct CodexUsageSnapshot: Codable {
 }
 
 enum CodexUsageSnapshotStore {
+    static func loadCachedSnapshot(from url: URL = snapshotURL()) -> CodexUsageSnapshot? {
+        try? loadSnapshot(from: url)
+    }
+
     static func loadFreshSnapshot(
         now: Date = Date(),
         maxAge: TimeInterval = CodexUsageConfig.cachedSnapshotMaxAge,
         from url: URL = snapshotURL()
     ) -> CodexUsageSnapshot? {
-        guard let snapshot = try? loadSnapshot(from: url) else { return nil }
+        guard let snapshot = loadCachedSnapshot(from: url) else { return nil }
         return isFresh(snapshot, now: now, maxAge: maxAge) ? snapshot : nil
     }
 
@@ -205,6 +209,48 @@ struct CodexUsageDisplay {
                     )
                 )
             }
+    }
+}
+
+enum CodexUsageMenuBarPresentation {
+    static let placeholderTitle = "5h -- W --"
+    static let loadingTitle = "5h ... W ..."
+    static let errorTitle = "5h ? W ?"
+
+    static func title(for display: CodexUsageDisplay) -> String {
+        "5h \(display.primaryPercent) W \(display.weeklyPercent)"
+    }
+
+    static func toolTip(for display: CodexUsageDisplay) -> String {
+        "Codex usage: 5h \(display.primaryPercent), weekly \(display.weeklyPercent)"
+    }
+}
+
+struct CodexUsageMenuBarState {
+    private(set) var title: String
+    private var hasRenderedSnapshot: Bool
+
+    init(
+        title: String = CodexUsageMenuBarPresentation.placeholderTitle,
+        hasRenderedSnapshot: Bool = false
+    ) {
+        self.title = title
+        self.hasRenderedSnapshot = hasRenderedSnapshot
+    }
+
+    mutating func beginRefresh(showLoading: Bool) {
+        guard showLoading, !hasRenderedSnapshot else { return }
+        title = CodexUsageMenuBarPresentation.loadingTitle
+    }
+
+    mutating func render(_ display: CodexUsageDisplay) {
+        title = CodexUsageMenuBarPresentation.title(for: display)
+        hasRenderedSnapshot = true
+    }
+
+    mutating func renderError() {
+        guard !hasRenderedSnapshot else { return }
+        title = CodexUsageMenuBarPresentation.errorTitle
     }
 }
 

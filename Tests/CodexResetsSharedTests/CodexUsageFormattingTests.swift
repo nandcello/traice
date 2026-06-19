@@ -1,7 +1,11 @@
 import XCTest
 
 final class CodexUsageFormattingTests: XCTestCase {
-    private func sampleSnapshot(checkedAt: Date) -> CodexUsageSnapshot {
+    private func sampleSnapshot(
+        checkedAt: Date,
+        primaryPercent: Double = 6.4,
+        weeklyPercent: Double = 8.2
+    ) -> CodexUsageSnapshot {
         CodexUsageSnapshot(
             usage: UsageResponse(
                 planType: "pro",
@@ -9,13 +13,13 @@ final class CodexUsageFormattingTests: XCTestCase {
                     allowed: true,
                     limitReached: false,
                     primaryWindow: UsageWindow(
-                        usedPercent: 6.4,
+                        usedPercent: primaryPercent,
                         limitWindowSeconds: 18_000,
                         resetAfterSeconds: 3_600,
                         resetAt: 1_004_600
                     ),
                     secondaryWindow: UsageWindow(
-                        usedPercent: 8.2,
+                        usedPercent: weeklyPercent,
                         limitWindowSeconds: 604_800,
                         resetAfterSeconds: 86_400,
                         resetAt: 1_087_000
@@ -86,6 +90,38 @@ final class CodexUsageFormattingTests: XCTestCase {
         XCTAssertEqual(display.creditSummaries[0].status, "available")
     }
 
+    func testMenuBarStatePreservesUsageTitleUntilUpdatedSnapshotRenders() {
+        var state = CodexUsageMenuBarState()
+        let initialDisplay = CodexUsageDisplay(
+            snapshot: sampleSnapshot(
+                checkedAt: Date(timeIntervalSince1970: 1_000_000),
+                primaryPercent: 6.4,
+                weeklyPercent: 8.2
+            ),
+            timezone: TimeZone(secondsFromGMT: 0)!
+        )
+        let updatedDisplay = CodexUsageDisplay(
+            snapshot: sampleSnapshot(
+                checkedAt: Date(timeIntervalSince1970: 1_000_030),
+                primaryPercent: 12.4,
+                weeklyPercent: 18.5
+            ),
+            timezone: TimeZone(secondsFromGMT: 0)!
+        )
+
+        state.render(initialDisplay)
+        XCTAssertEqual(state.title, "5h 6% W 8%")
+
+        state.beginRefresh(showLoading: true)
+        XCTAssertEqual(state.title, "5h 6% W 8%")
+
+        state.renderError()
+        XCTAssertEqual(state.title, "5h 6% W 8%")
+
+        state.render(updatedDisplay)
+        XCTAssertEqual(state.title, "5h 12% W 19%")
+    }
+
     func testSnapshotStoreRoundTripsSnapshot() throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -112,5 +148,26 @@ final class CodexUsageFormattingTests: XCTestCase {
 
         XCTAssertTrue(CodexUsageSnapshotStore.isFresh(fresh, now: now, maxAge: 45))
         XCTAssertFalse(CodexUsageSnapshotStore.isFresh(stale, now: now, maxAge: 45))
+    }
+
+    func testLoadCachedSnapshotReturnsStaleSnapshots() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("usage-snapshot.json")
+        defer {
+            try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+        }
+        let snapshot = sampleSnapshot(checkedAt: Date(timeIntervalSince1970: 900))
+
+        try CodexUsageSnapshotStore.saveSnapshot(snapshot, to: url)
+
+        XCTAssertNil(
+            CodexUsageSnapshotStore.loadFreshSnapshot(
+                now: Date(timeIntervalSince1970: 1_000),
+                maxAge: 45,
+                from: url
+            )
+        )
+        XCTAssertEqual(CodexUsageSnapshotStore.loadCachedSnapshot(from: url)?.checkedAt, snapshot.checkedAt)
     }
 }
