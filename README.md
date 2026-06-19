@@ -6,6 +6,24 @@ Traice is a native macOS menu bar app and Notification Center widget for Codex 5
 
 This project is unofficial and is not affiliated with OpenAI. It reads your local Codex auth file and calls private ChatGPT/Codex usage endpoints that may change without notice.
 
+## Preview
+
+Widget
+<p>
+  <img src="docs/widget-preview.png" alt="Traice Notification Center widget showing 5-hour and weekly usage, reset times, and available reset credits with expiration times" width="420">
+</p>
+
+Menu bar
+<p>
+  <img src="docs/menubar-preview.png" alt="Traice menu bar item showing 5-hour and weekly usage percentages" width="240">
+</p>
+
+## Features
+
+- Track Codex 5-hour and weekly usage from the macOS menu bar and Notification Center widget.
+- See when the 5-hour and weekly usage windows reset, including relative times in the widget and exact timestamps in the menu bar dropdown.
+- View available Codex reset credits and when each credit expires.
+
 ## Requirements to Run
 
 - macOS 14 or newer.
