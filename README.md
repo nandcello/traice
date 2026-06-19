@@ -23,6 +23,7 @@ Menu bar
 - Track Codex 5-hour and weekly usage from the macOS menu bar and Notification Center widget.
 - See when the 5-hour and weekly usage windows reset, including relative times in the widget and exact timestamps in the menu bar dropdown.
 - View available Codex reset credits and when each credit expires.
+- Refresh menu bar usage about every 30 seconds and share fresh snapshots with the widget when macOS allows it to reload.
 
 ## Requirements to Run
 
@@ -53,7 +54,7 @@ To install somewhere else:
 ./install-native.sh "/path/to/Traice.app"
 ```
 
-To add the widget, open Notification Center, choose **Edit Widgets**, search for **Traice**, and add the small, medium, or large widget. macOS controls widget refresh cadence.
+To add the widget, open Notification Center, choose **Edit Widgets**, search for **Traice**, and add the small, medium, or large widget. Traice asks WidgetKit to reload after fresh menu bar usage checks, but macOS still controls the final widget refresh cadence.
 
 To uninstall:
 

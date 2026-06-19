@@ -1,5 +1,6 @@
 import Cocoa
 import Foundation
+import WidgetKit
 
 @main
 private struct CodexUsageApp {
@@ -22,6 +23,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshStartedAt: Date?
+    private var lastSuccessfulSnapshot: CodexUsageSnapshot?
+    private var lastDisplaySignature: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -32,11 +35,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         setLoadingMenu()
-        refresh()
+        refresh(showLoading: true, force: true)
 
-        timer = Timer.scheduledTimer(withTimeInterval: CodexUsageConfig.refreshInterval, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: CodexUsageConfig.menuBarRefreshInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.refresh()
+                self?.refresh(showLoading: false, force: false)
             }
         }
     }
@@ -46,14 +49,23 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         timer?.invalidate()
     }
 
-    private func refresh() {
+    private func refresh(showLoading: Bool, force: Bool) {
+        if refreshTask != nil && !force {
+            return
+        }
+
         let startedAt = Date()
         lastRefreshStartedAt = startedAt
-        statusItem.button?.title = "5h ... W ..."
+        if showLoading {
+            statusItem.button?.title = "5h ... W ..."
+        }
         refreshTask?.cancel()
 
         refreshTask = Task { [weak self] in
             guard let self else { return }
+            defer {
+                refreshTask = nil
+            }
 
             do {
                 let snapshot = try await client.fetchSnapshot(checkedAt: startedAt)
@@ -68,11 +80,27 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func render(_ snapshot: CodexUsageSnapshot) {
         let display = CodexUsageDisplay(snapshot: snapshot)
+        let displaySignature = [
+            display.primaryPercent,
+            display.weeklyPercent,
+            display.primaryResetText,
+            display.weeklyResetText,
+            display.resetCreditCount.map(String.init) ?? "unknown"
+        ].joined(separator: "|")
+        let shouldReloadWidgets = displaySignature != lastDisplaySignature
+
+        lastSuccessfulSnapshot = snapshot
+        lastDisplaySignature = displaySignature
+        try? CodexUsageSnapshotStore.saveSnapshot(snapshot)
+        if shouldReloadWidgets {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
 
         statusItem.button?.title = "5h \(display.primaryPercent) W \(display.weeklyPercent)"
         statusItem.button?.toolTip = "Codex usage: 5h \(display.primaryPercent), weekly \(display.weeklyPercent)"
 
         let menu = NSMenu()
+        menu.delegate = self
         menu.addDisabled("Codex usage")
         if let planType = display.planType {
             menu.addDisabled("Plan: \(planType)")
@@ -118,6 +146,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.toolTip = error.localizedDescription
 
         let menu = NSMenu()
+        menu.delegate = self
         menu.addDisabled("Codex usage error")
         menu.addDisabled(error.localizedDescription)
         addFooter(to: menu, checkedAt: lastRefreshStartedAt ?? Date(), timezone: CodexUsageFormatting.configuredTimeZone())
@@ -126,6 +155,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setLoadingMenu() {
         let menu = NSMenu()
+        menu.delegate = self
         menu.addDisabled("Loading Codex usage...")
         addFooter(to: menu, checkedAt: Date(), timezone: CodexUsageFormatting.configuredTimeZone())
         statusItem.menu = menu
@@ -143,7 +173,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func refreshFromMenu() {
         setLoadingMenu()
-        refresh()
+        refresh(showLoading: true, force: true)
     }
 
     @objc private func openUsageSettings() {
@@ -156,6 +186,21 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    func menuWillOpen(_ menu: NSMenu) {
+        guard refreshTask == nil else { return }
+        guard let lastSuccessfulSnapshot else {
+            refresh(showLoading: false, force: false)
+            return
+        }
+
+        let age = Date().timeIntervalSince(lastSuccessfulSnapshot.checkedAt)
+        if age > CodexUsageConfig.menuOpenRefreshAge {
+            refresh(showLoading: false, force: false)
+        }
     }
 }
 
@@ -176,4 +221,3 @@ private extension NSMenu {
         addItem(NSMenuItem.separator())
     }
 }
-

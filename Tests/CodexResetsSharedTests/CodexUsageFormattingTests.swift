@@ -1,6 +1,44 @@
 import XCTest
 
 final class CodexUsageFormattingTests: XCTestCase {
+    private func sampleSnapshot(checkedAt: Date) -> CodexUsageSnapshot {
+        CodexUsageSnapshot(
+            usage: UsageResponse(
+                planType: "pro",
+                rateLimit: RateLimit(
+                    allowed: true,
+                    limitReached: false,
+                    primaryWindow: UsageWindow(
+                        usedPercent: 6.4,
+                        limitWindowSeconds: 18_000,
+                        resetAfterSeconds: 3_600,
+                        resetAt: 1_004_600
+                    ),
+                    secondaryWindow: UsageWindow(
+                        usedPercent: 8.2,
+                        limitWindowSeconds: 604_800,
+                        resetAfterSeconds: 86_400,
+                        resetAt: 1_087_000
+                    )
+                ),
+                resetCredits: ResetCredits(availableCount: 1)
+            ),
+            resetCreditList: ResetCreditList(
+                credits: [
+                    ResetCredit(
+                        title: "Codex reset",
+                        status: "available",
+                        expiresAtRaw: "2001-09-09T02:46:40Z",
+                        grantedAtRaw: "2001-09-09T01:46:40Z"
+                    )
+                ],
+                availableCount: 1
+            ),
+            resetCreditError: nil,
+            checkedAt: checkedAt
+        )
+    }
+
     func testPercentFormatting() {
         XCTAssertEqual(CodexUsageFormatting.formatPercent(nil), "--%")
         XCTAssertEqual(CodexUsageFormatting.formatPercent(6.4), "6%")
@@ -31,42 +69,7 @@ final class CodexUsageFormattingTests: XCTestCase {
     }
 
     func testDisplayBuildsCreditSummaries() {
-        let usage = UsageResponse(
-            planType: "pro",
-            rateLimit: RateLimit(
-                allowed: true,
-                limitReached: false,
-                primaryWindow: UsageWindow(
-                    usedPercent: 6.4,
-                    limitWindowSeconds: 18_000,
-                    resetAfterSeconds: 3_600,
-                    resetAt: 1_004_600
-                ),
-                secondaryWindow: UsageWindow(
-                    usedPercent: 8.2,
-                    limitWindowSeconds: 604_800,
-                    resetAfterSeconds: 86_400,
-                    resetAt: 1_087_000
-                )
-            ),
-            resetCredits: ResetCredits(availableCount: 1)
-        )
-        let snapshot = CodexUsageSnapshot(
-            usage: usage,
-            resetCreditList: ResetCreditList(
-                credits: [
-                    ResetCredit(
-                        title: "Codex reset",
-                        status: "available",
-                        expiresAtRaw: "2001-09-09T02:46:40Z",
-                        grantedAtRaw: "2001-09-09T01:46:40Z"
-                    )
-                ],
-                availableCount: 1
-            ),
-            resetCreditError: nil,
-            checkedAt: Date(timeIntervalSince1970: 1_000_000)
-        )
+        let snapshot = sampleSnapshot(checkedAt: Date(timeIntervalSince1970: 1_000_000))
 
         let display = CodexUsageDisplay(
             snapshot: snapshot,
@@ -81,5 +84,33 @@ final class CodexUsageFormattingTests: XCTestCase {
         XCTAssertEqual(display.resetCreditCount, 1)
         XCTAssertEqual(display.creditSummaries.count, 1)
         XCTAssertEqual(display.creditSummaries[0].status, "available")
+    }
+
+    func testSnapshotStoreRoundTripsSnapshot() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("usage-snapshot.json")
+        defer {
+            try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+        }
+        let snapshot = sampleSnapshot(checkedAt: Date(timeIntervalSince1970: 1_000_000))
+
+        try CodexUsageSnapshotStore.saveSnapshot(snapshot, to: url)
+        let loaded = try CodexUsageSnapshotStore.loadSnapshot(from: url)
+
+        XCTAssertEqual(loaded.checkedAt, snapshot.checkedAt)
+        XCTAssertEqual(loaded.usage.planType, "pro")
+        XCTAssertEqual(loaded.usage.rateLimit?.primaryWindow?.usedPercent, 6.4)
+        XCTAssertEqual(loaded.resetCreditList?.availableCount, 1)
+        XCTAssertEqual(loaded.resetCreditList?.credits?.first?.status, "available")
+    }
+
+    func testSnapshotFreshnessUsesMaxAge() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        let fresh = sampleSnapshot(checkedAt: Date(timeIntervalSince1970: 970))
+        let stale = sampleSnapshot(checkedAt: Date(timeIntervalSince1970: 900))
+
+        XCTAssertTrue(CodexUsageSnapshotStore.isFresh(fresh, now: now, maxAge: 45))
+        XCTAssertFalse(CodexUsageSnapshotStore.isFresh(stale, now: now, maxAge: 45))
     }
 }

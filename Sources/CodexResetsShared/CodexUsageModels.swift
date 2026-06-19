@@ -5,14 +5,18 @@ enum CodexUsageConfig {
     static let resetCreditsEndpoint = URL(string: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")!
     static let usageSettingsURL = URL(string: "https://chatgpt.com/codex/settings/usage")!
     static let defaultAuthPath = "~/.codex/auth.json"
-    static let refreshInterval: TimeInterval = 5 * 60
+    static let menuBarRefreshInterval: TimeInterval = 30
+    static let menuOpenRefreshAge: TimeInterval = 10
+    static let widgetRefreshInterval: TimeInterval = 5 * 60
+    static let cachedSnapshotMaxAge: TimeInterval = 45
+    static let snapshotCachePath = "~/Library/Application Support/Traice/usage-snapshot.json"
 }
 
-struct AuthFile: Decodable {
+struct AuthFile: Codable {
     let tokens: Tokens
 }
 
-struct Tokens: Decodable {
+struct Tokens: Codable {
     let accessToken: String
     let accountID: String
 
@@ -22,7 +26,7 @@ struct Tokens: Decodable {
     }
 }
 
-struct UsageResponse: Decodable {
+struct UsageResponse: Codable {
     let planType: String?
     let rateLimit: RateLimit?
     let resetCredits: ResetCredits?
@@ -34,7 +38,7 @@ struct UsageResponse: Decodable {
     }
 }
 
-struct RateLimit: Decodable {
+struct RateLimit: Codable {
     let allowed: Bool?
     let limitReached: Bool?
     let primaryWindow: UsageWindow?
@@ -48,7 +52,7 @@ struct RateLimit: Decodable {
     }
 }
 
-struct UsageWindow: Decodable {
+struct UsageWindow: Codable {
     let usedPercent: Double?
     let limitWindowSeconds: Int?
     let resetAfterSeconds: Int?
@@ -62,7 +66,7 @@ struct UsageWindow: Decodable {
     }
 }
 
-struct ResetCredits: Decodable {
+struct ResetCredits: Codable {
     let availableCount: Int?
 
     enum CodingKeys: String, CodingKey {
@@ -70,7 +74,7 @@ struct ResetCredits: Decodable {
     }
 }
 
-struct ResetCreditList: Decodable {
+struct ResetCreditList: Codable {
     let credits: [ResetCredit]?
     let availableCount: Int?
 
@@ -80,7 +84,7 @@ struct ResetCreditList: Decodable {
     }
 }
 
-struct ResetCredit: Decodable {
+struct ResetCredit: Codable {
     let title: String?
     let status: String?
     let expiresAtRaw: String?
@@ -94,11 +98,46 @@ struct ResetCredit: Decodable {
     }
 }
 
-struct CodexUsageSnapshot {
+struct CodexUsageSnapshot: Codable {
     let usage: UsageResponse
     let resetCreditList: ResetCreditList?
     let resetCreditError: String?
     let checkedAt: Date
+}
+
+enum CodexUsageSnapshotStore {
+    static func loadFreshSnapshot(
+        now: Date = Date(),
+        maxAge: TimeInterval = CodexUsageConfig.cachedSnapshotMaxAge,
+        from url: URL = snapshotURL()
+    ) -> CodexUsageSnapshot? {
+        guard let snapshot = try? loadSnapshot(from: url) else { return nil }
+        return isFresh(snapshot, now: now, maxAge: maxAge) ? snapshot : nil
+    }
+
+    static func loadSnapshot(from url: URL = snapshotURL()) throws -> CodexUsageSnapshot {
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(CodexUsageSnapshot.self, from: data)
+    }
+
+    static func saveSnapshot(_ snapshot: CodexUsageSnapshot, to url: URL = snapshotURL()) throws {
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let data = try JSONEncoder().encode(snapshot)
+        try data.write(to: url, options: [.atomic])
+    }
+
+    static func isFresh(
+        _ snapshot: CodexUsageSnapshot,
+        now: Date = Date(),
+        maxAge: TimeInterval = CodexUsageConfig.cachedSnapshotMaxAge
+    ) -> Bool {
+        abs(now.timeIntervalSince(snapshot.checkedAt)) <= maxAge
+    }
+
+    static func snapshotURL() -> URL {
+        URL(fileURLWithPath: CodexUsageFormatting.expandedPath(CodexUsageConfig.snapshotCachePath))
+    }
 }
 
 struct CodexUsageDisplay {
@@ -177,4 +216,3 @@ struct CodexResetCreditDisplay: Identifiable {
     let expiresRelativeText: String
     let grantedText: String
 }
-

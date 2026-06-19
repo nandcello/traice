@@ -9,7 +9,7 @@
   <key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
   <array>
     <string>/.codex/auth.json</string>
+    <string>/Library/Application Support/Traice/usage-snapshot.json</string>
   </array>
 </dict>
 </plist>
-

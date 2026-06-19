@@ -34,15 +34,18 @@ struct CodexResetsProvider: TimelineProvider {
             let entry = await loadEntry()
             let nextRefresh = Calendar.current.date(
                 byAdding: .second,
-                value: Int(CodexUsageConfig.refreshInterval),
+                value: Int(CodexUsageConfig.widgetRefreshInterval),
                 to: Date()
-            ) ?? Date().addingTimeInterval(CodexUsageConfig.refreshInterval)
+            ) ?? Date().addingTimeInterval(CodexUsageConfig.widgetRefreshInterval)
             completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
         }
     }
 
     private func loadEntry() async -> CodexResetsEntry {
         let checkedAt = Date()
+        if let cachedSnapshot = CodexUsageSnapshotStore.loadFreshSnapshot(now: checkedAt) {
+            return CodexResetsEntry(date: cachedSnapshot.checkedAt, state: .success(cachedSnapshot))
+        }
 
         do {
             let snapshot = try await CodexUsageClient().fetchSnapshot(checkedAt: checkedAt)
