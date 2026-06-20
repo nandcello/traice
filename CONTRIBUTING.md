@@ -12,7 +12,7 @@ Build:
 
 ```sh
 xcodebuild \
-  -project CodexResets.xcodeproj \
+  -project Traice.xcodeproj \
   -scheme "Traice" \
   -configuration Debug \
   -destination "generic/platform=macOS" \
@@ -23,7 +23,7 @@ Test:
 
 ```sh
 xcodebuild \
-  -project CodexResets.xcodeproj \
+  -project Traice.xcodeproj \
   -scheme "Traice" \
   -destination "platform=macOS" \
   test

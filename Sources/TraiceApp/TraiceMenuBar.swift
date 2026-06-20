@@ -32,7 +32,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if let button = statusItem.button {
             button.title = menuBarState.title
-            button.toolTip = "Codex usage"
+            button.toolTip = "Traice"
         }
 
         setLoadingMenu()
@@ -102,7 +102,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-        menu.addDisabled("Codex usage")
+        menu.addDisabled("Traice")
         if let planType = display.planType {
             menu.addDisabled("Plan: \(planType)")
         }
@@ -149,7 +149,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-        menu.addDisabled("Codex usage error")
+        menu.addDisabled("Traice error")
         menu.addDisabled(error.localizedDescription)
         addFooter(to: menu, checkedAt: lastRefreshStartedAt ?? Date(), timezone: CodexUsageFormatting.configuredTimeZone())
         statusItem.menu = menu
@@ -158,7 +158,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setLoadingMenu() {
         let menu = NSMenu()
         menu.delegate = self
-        menu.addDisabled("Loading Codex usage...")
+        menu.addDisabled("Loading Traice...")
         addFooter(to: menu, checkedAt: Date(), timezone: CodexUsageFormatting.configuredTimeZone())
         statusItem.menu = menu
     }
@@ -170,7 +170,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addAction("Open usage settings", target: self, action: #selector(openUsageSettings))
         menu.addAction("Open auth folder", target: self, action: #selector(openAuthFolder))
         menu.addSeparator()
-        menu.addAction("Quit Codex Usage", target: self, action: #selector(quit))
+        menu.addAction("Quit Traice", target: self, action: #selector(quit))
     }
 
     @objc private func refreshFromMenu() {

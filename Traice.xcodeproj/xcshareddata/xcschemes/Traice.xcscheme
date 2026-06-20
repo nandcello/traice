@@ -18,7 +18,7 @@
                BlueprintIdentifier = "A00000000000000000000004"
                BuildableName = "Traice.app"
                BlueprintName = "Traice"
-               ReferencedContainer = "container:CodexResets.xcodeproj">
+               ReferencedContainer = "container:Traice.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
@@ -32,7 +32,7 @@
                BlueprintIdentifier = "B0000000000000000000000A"
                BuildableName = "Traice Tests.xctest"
                BlueprintName = "Traice Tests"
-               ReferencedContainer = "container:CodexResets.xcodeproj">
+               ReferencedContainer = "container:Traice.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -50,7 +50,7 @@
                BlueprintIdentifier = "B0000000000000000000000A"
                BuildableName = "Traice Tests.xctest"
                BlueprintName = "Traice Tests"
-               ReferencedContainer = "container:CodexResets.xcodeproj">
+               ReferencedContainer = "container:Traice.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -72,7 +72,7 @@
             BlueprintIdentifier = "A00000000000000000000004"
             BuildableName = "Traice.app"
             BlueprintName = "Traice"
-            ReferencedContainer = "container:CodexResets.xcodeproj">
+            ReferencedContainer = "container:Traice.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -89,7 +89,7 @@
             BlueprintIdentifier = "A00000000000000000000004"
             BuildableName = "Traice.app"
             BlueprintName = "Traice"
-            ReferencedContainer = "container:CodexResets.xcodeproj">
+            ReferencedContainer = "container:Traice.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

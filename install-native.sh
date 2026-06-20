@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT="$SCRIPT_DIR/CodexResets.xcodeproj"
+PROJECT="$SCRIPT_DIR/Traice.xcodeproj"
 TARGET="Traice"
 DERIVED_DATA="${TRAICE_DERIVED_DATA:-/tmp/traice-derived-data}"
 APP_BUNDLE_ID="${TRAICE_APP_BUNDLE_ID:-com.juicecolored.traice}"
@@ -13,7 +13,7 @@ BUILT_WIDGET_APPEX="$BUILT_APP/Contents/PlugIns/Traice Widget.appex"
 APP_PATH="${1:-$HOME/Applications/Traice.app}"
 LAUNCH_AGENT="$HOME/Library/LaunchAgents/$LAUNCH_AGENT_LABEL.plist"
 WIDGET_APPEX="$APP_PATH/Contents/PlugIns/Traice Widget.appex"
-WIDGET_ENTITLEMENTS="$SCRIPT_DIR/Sources/CodexResetsWidget/CodexResetsWidget.entitlements"
+WIDGET_ENTITLEMENTS="$SCRIPT_DIR/Sources/TraiceWidget/TraiceWidget.entitlements"
 
 mkdir -p "$(dirname "$APP_PATH")" "$HOME/Library/LaunchAgents"
 

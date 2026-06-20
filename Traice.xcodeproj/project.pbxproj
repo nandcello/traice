@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A00000000000000000000030 /* CodexResetsMenuBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* CodexResetsMenuBar.swift */; };
+		A00000000000000000000030 /* TraiceMenuBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* TraiceMenuBar.swift */; };
 		A00000000000000000000031 /* CodexUsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* CodexUsageModels.swift */; };
 		A00000000000000000000032 /* CodexUsageFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000023 /* CodexUsageFormatting.swift */; };
 		A00000000000000000000033 /* CodexUsageClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000024 /* CodexUsageClient.swift */; };
-		A00000000000000000000034 /* CodexResetsWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000021 /* CodexResetsWidget.swift */; };
+		A00000000000000000000034 /* TraiceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000021 /* TraiceWidget.swift */; };
 		A00000000000000000000035 /* CodexUsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* CodexUsageModels.swift */; };
 		A00000000000000000000036 /* CodexUsageFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000023 /* CodexUsageFormatting.swift */; };
 		A00000000000000000000037 /* CodexUsageClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000024 /* CodexUsageClient.swift */; };
@@ -53,8 +53,8 @@
 /* Begin PBXFileReference section */
 		A00000000000000000000006 /* Traice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Traice.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000007 /* Traice Widget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Traice Widget.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A00000000000000000000020 /* CodexResetsMenuBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexResetsMenuBar.swift; sourceTree = "<group>"; };
-		A00000000000000000000021 /* CodexResetsWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexResetsWidget.swift; sourceTree = "<group>"; };
+		A00000000000000000000020 /* TraiceMenuBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraiceMenuBar.swift; sourceTree = "<group>"; };
+		A00000000000000000000021 /* TraiceWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraiceWidget.swift; sourceTree = "<group>"; };
 		A00000000000000000000022 /* CodexUsageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageModels.swift; sourceTree = "<group>"; };
 		A00000000000000000000023 /* CodexUsageFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageFormatting.swift; sourceTree = "<group>"; };
 		A00000000000000000000024 /* CodexUsageClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageClient.swift; sourceTree = "<group>"; };
@@ -64,7 +64,7 @@
 		A00000000000000000000028 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		A00000000000000000000029 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		A0000000000000000000002A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A0000000000000000000002B /* CodexResetsWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CodexResetsWidget.entitlements; sourceTree = "<group>"; };
+		A0000000000000000000002B /* TraiceWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TraiceWidget.entitlements; sourceTree = "<group>"; };
 		B00000000000000000000002 /* CodexUsageFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageFormattingTests.swift; sourceTree = "<group>"; };
 		B00000000000000000000006 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		B00000000000000000000007 /* Traice Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Traice Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -102,10 +102,10 @@
 		A00000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				A00000000000000000000018 /* CodexResetsApp */,
-				A00000000000000000000019 /* CodexResetsShared */,
-				A0000000000000000000001A /* CodexResetsWidget */,
-				B00000000000000000000009 /* CodexResetsSharedTests */,
+				A00000000000000000000018 /* TraiceApp */,
+				A00000000000000000000019 /* TraiceShared */,
+				A0000000000000000000001A /* TraiceWidget */,
+				B00000000000000000000009 /* TraiceSharedTests */,
 				A0000000000000000000001B /* Frameworks */,
 				A00000000000000000000002 /* Products */,
 			);
@@ -121,46 +121,46 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A00000000000000000000018 /* CodexResetsApp */ = {
+		A00000000000000000000018 /* TraiceApp */ = {
 			isa = PBXGroup;
 			children = (
-				A00000000000000000000020 /* CodexResetsMenuBar.swift */,
+				A00000000000000000000020 /* TraiceMenuBar.swift */,
 				A00000000000000000000025 /* Info.plist */,
 			);
-			name = CodexResetsApp;
-			path = Sources/CodexResetsApp;
+			name = TraiceApp;
+			path = Sources/TraiceApp;
 			sourceTree = "<group>";
 		};
-		A00000000000000000000019 /* CodexResetsShared */ = {
+		A00000000000000000000019 /* TraiceShared */ = {
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000022 /* CodexUsageModels.swift */,
 				A00000000000000000000023 /* CodexUsageFormatting.swift */,
 				A00000000000000000000024 /* CodexUsageClient.swift */,
 			);
-			name = CodexResetsShared;
-			path = Sources/CodexResetsShared;
+			name = TraiceShared;
+			path = Sources/TraiceShared;
 			sourceTree = "<group>";
 		};
-		A0000000000000000000001A /* CodexResetsWidget */ = {
+		A0000000000000000000001A /* TraiceWidget */ = {
 			isa = PBXGroup;
 			children = (
-				A00000000000000000000021 /* CodexResetsWidget.swift */,
+				A00000000000000000000021 /* TraiceWidget.swift */,
 				A00000000000000000000026 /* Info.plist */,
-				A0000000000000000000002B /* CodexResetsWidget.entitlements */,
+				A0000000000000000000002B /* TraiceWidget.entitlements */,
 				A0000000000000000000002A /* Assets.xcassets */,
 			);
-			name = CodexResetsWidget;
-			path = Sources/CodexResetsWidget;
+			name = TraiceWidget;
+			path = Sources/TraiceWidget;
 			sourceTree = "<group>";
 		};
-		B00000000000000000000009 /* CodexResetsSharedTests */ = {
+		B00000000000000000000009 /* TraiceSharedTests */ = {
 			isa = PBXGroup;
 			children = (
 				B00000000000000000000002 /* CodexUsageFormattingTests.swift */,
 			);
-			name = CodexResetsSharedTests;
-			path = Tests/CodexResetsSharedTests;
+			name = TraiceSharedTests;
+			path = Tests/TraiceSharedTests;
 			sourceTree = "<group>";
 		};
 		A0000000000000000000001B /* Frameworks */ = {
@@ -253,7 +253,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A00000000000000000000015 /* Build configuration list for PBXProject "CodexResets" */;
+			buildConfigurationList = A00000000000000000000015 /* Build configuration list for PBXProject "Traice" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -306,7 +306,7 @@
 				A00000000000000000000031 /* CodexUsageModels.swift in Sources */,
 				A00000000000000000000032 /* CodexUsageFormatting.swift in Sources */,
 				A00000000000000000000033 /* CodexUsageClient.swift in Sources */,
-				A00000000000000000000030 /* CodexResetsMenuBar.swift in Sources */,
+				A00000000000000000000030 /* TraiceMenuBar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -317,7 +317,7 @@
 				A00000000000000000000035 /* CodexUsageModels.swift in Sources */,
 				A00000000000000000000036 /* CodexUsageFormatting.swift in Sources */,
 				A00000000000000000000037 /* CodexUsageClient.swift in Sources */,
-				A00000000000000000000034 /* CodexResetsWidget.swift in Sources */,
+				A00000000000000000000034 /* TraiceWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -353,7 +353,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Sources/CodexResetsApp/Info.plist;
+				INFOPLIST_FILE = Sources/TraiceApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -381,7 +381,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Sources/CodexResetsApp/Info.plist;
+				INFOPLIST_FILE = Sources/TraiceApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -404,7 +404,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = Sources/CodexResetsWidget/CodexResetsWidget.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Sources/TraiceWidget/TraiceWidget.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				TRAICE_APP_BUNDLE_ID = "com.juicecolored.traice";
@@ -412,7 +412,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Sources/CodexResetsWidget/Info.plist;
+				INFOPLIST_FILE = Sources/TraiceWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -435,7 +435,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = Sources/CodexResetsWidget/CodexResetsWidget.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Sources/TraiceWidget/TraiceWidget.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				TRAICE_APP_BUNDLE_ID = "com.juicecolored.traice";
@@ -443,7 +443,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Sources/CodexResetsWidget/Info.plist;
+				INFOPLIST_FILE = Sources/TraiceWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -627,7 +627,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A00000000000000000000015 /* Build configuration list for PBXProject "CodexResets" */ = {
+		A00000000000000000000015 /* Build configuration list for PBXProject "Traice" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A00000000000000000000016 /* Debug */,

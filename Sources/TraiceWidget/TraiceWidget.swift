@@ -2,25 +2,25 @@ import AppKit
 import SwiftUI
 import WidgetKit
 
-struct CodexResetsEntry: TimelineEntry {
+struct TraiceEntry: TimelineEntry {
     let date: Date
-    let state: CodexResetsWidgetState
+    let state: TraiceWidgetState
 }
 
-enum CodexResetsWidgetState {
+enum TraiceWidgetState {
     case placeholder
     case success(CodexUsageSnapshot)
     case failure(String, Date)
 }
 
-struct CodexResetsProvider: TimelineProvider {
-    func placeholder(in context: Context) -> CodexResetsEntry {
-        CodexResetsEntry(date: Date(), state: .placeholder)
+struct TraiceProvider: TimelineProvider {
+    func placeholder(in context: Context) -> TraiceEntry {
+        TraiceEntry(date: Date(), state: .placeholder)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (CodexResetsEntry) -> Void) {
+    func getSnapshot(in context: Context, completion: @escaping (TraiceEntry) -> Void) {
         if context.isPreview {
-            completion(CodexResetsEntry(date: Date(), state: .placeholder))
+            completion(TraiceEntry(date: Date(), state: .placeholder))
             return
         }
 
@@ -29,7 +29,7 @@ struct CodexResetsProvider: TimelineProvider {
         }
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<CodexResetsEntry>) -> Void) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<TraiceEntry>) -> Void) {
         Task {
             let entry = await loadEntry()
             let nextRefresh = Calendar.current.date(
@@ -41,24 +41,24 @@ struct CodexResetsProvider: TimelineProvider {
         }
     }
 
-    private func loadEntry() async -> CodexResetsEntry {
+    private func loadEntry() async -> TraiceEntry {
         let checkedAt = Date()
         if let cachedSnapshot = CodexUsageSnapshotStore.loadCachedSnapshot() {
-            return CodexResetsEntry(date: cachedSnapshot.checkedAt, state: .success(cachedSnapshot))
+            return TraiceEntry(date: cachedSnapshot.checkedAt, state: .success(cachedSnapshot))
         }
 
         do {
             let snapshot = try await CodexUsageClient().fetchSnapshot(checkedAt: checkedAt)
-            return CodexResetsEntry(date: checkedAt, state: .success(snapshot))
+            return TraiceEntry(date: checkedAt, state: .success(snapshot))
         } catch {
-            return CodexResetsEntry(date: checkedAt, state: .failure(error.localizedDescription, checkedAt))
+            return TraiceEntry(date: checkedAt, state: .failure(error.localizedDescription, checkedAt))
         }
     }
 }
 
-struct CodexResetsWidgetView: View {
+struct TraiceWidgetView: View {
     @Environment(\.widgetFamily) private var family
-    let entry: CodexResetsEntry
+    let entry: TraiceEntry
 
     var body: some View {
         Group {
@@ -197,7 +197,7 @@ struct CodexResetsWidgetView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
                 .font(.title3)
-            Text("Codex usage unavailable")
+            Text("Traice unavailable")
                 .font(.headline)
                 .lineLimit(2)
             Text(message)
@@ -288,12 +288,12 @@ private struct ResetLine: View {
     }
 }
 
-struct CodexResetsWidget: Widget {
-    let kind = "CodexResetsWidget"
+struct TraiceWidget: Widget {
+    let kind = "TraiceWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: CodexResetsProvider()) { entry in
-            CodexResetsWidgetView(entry: entry)
+        StaticConfiguration(kind: kind, provider: TraiceProvider()) { entry in
+            TraiceWidgetView(entry: entry)
         }
         .configurationDisplayName("Traice")
         .description("Shows Codex 5-hour and weekly usage, reset times, and reset credits.")
@@ -302,8 +302,8 @@ struct CodexResetsWidget: Widget {
 }
 
 @main
-struct CodexResetsWidgetBundle: WidgetBundle {
+struct TraiceWidgetBundle: WidgetBundle {
     var body: some Widget {
-        CodexResetsWidget()
+        TraiceWidget()
     }
 }
