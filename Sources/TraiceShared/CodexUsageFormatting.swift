@@ -94,7 +94,7 @@ enum CodexUsageFormatting {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = timezone
-        formatter.dateFormat = "MMM d, h:mm a zzz"
+        formatter.dateFormat = "MMM d, HH:mm"
         return formatter.string(from: date)
     }
 

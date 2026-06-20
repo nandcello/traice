@@ -77,17 +77,61 @@ final class CodexUsageFormattingTests: XCTestCase {
 
         let display = CodexUsageDisplay(
             snapshot: snapshot,
-            timezone: TimeZone(secondsFromGMT: 0)!
+            timezone: TimeZone(secondsFromGMT: 0)!,
+            now: snapshot.checkedAt
         )
 
         XCTAssertEqual(display.primaryPercent, "6%")
         XCTAssertEqual(display.weeklyPercent, "8%")
+        XCTAssertEqual(display.primaryResetAbsoluteText, "Jan 12, 15:03")
+        XCTAssertEqual(display.primaryResetRelativeText, "in 1h 16m")
         XCTAssertEqual(display.planType, "pro")
         XCTAssertEqual(display.allowedText, "yes")
         XCTAssertEqual(display.limitReachedText, "no")
         XCTAssertEqual(display.resetCreditCount, 1)
         XCTAssertEqual(display.creditSummaries.count, 1)
         XCTAssertEqual(display.creditSummaries[0].status, "available")
+        XCTAssertEqual(display.creditSummaries[0].expiresText, "Sep 9, 02:46")
+        XCTAssertEqual(display.creditSummaries[0].expiresRelativeText, "in 11562d 13h")
+        XCTAssertEqual(display.creditSummaries[0].grantedText, "Sep 9, 01:46")
+        XCTAssertEqual(display.creditSummaries[0].grantedRelativeText, "in 11562d 12h")
+        XCTAssertEqual(display.soonestResetCreditExpirationRelativeText, "in 11562d 13h")
+        XCTAssertEqual(display.checkedAtText, "Jan 12, 13:46")
+        XCTAssertEqual(display.checkedAtRelativeText, "in 0m")
+    }
+
+    func testDisplaySortsSoonestExpiringResetCreditFirst() {
+        let snapshot = CodexUsageSnapshot(
+            usage: sampleSnapshot(checkedAt: Date(timeIntervalSince1970: 1_000_000)).usage,
+            resetCreditList: ResetCreditList(
+                credits: [
+                    ResetCredit(
+                        title: "Later reset",
+                        status: "available",
+                        expiresAtRaw: "2001-09-09T04:46:40Z",
+                        grantedAtRaw: "2001-09-09T01:46:40Z"
+                    ),
+                    ResetCredit(
+                        title: "Sooner reset",
+                        status: "available",
+                        expiresAtRaw: "2001-09-09T02:46:40Z",
+                        grantedAtRaw: "2001-09-09T01:46:40Z"
+                    )
+                ],
+                availableCount: 2
+            ),
+            resetCreditError: nil,
+            checkedAt: Date(timeIntervalSince1970: 1_000_000)
+        )
+
+        let display = CodexUsageDisplay(
+            snapshot: snapshot,
+            timezone: TimeZone(secondsFromGMT: 0)!,
+            now: snapshot.checkedAt
+        )
+
+        XCTAssertEqual(display.creditSummaries.first?.title, "Sooner reset")
+        XCTAssertEqual(display.soonestResetCreditExpirationRelativeText, "in 11562d 13h")
     }
 
     func testMenuBarStatePreservesUsageTitleUntilUpdatedSnapshotRenders() {
@@ -98,7 +142,8 @@ final class CodexUsageFormattingTests: XCTestCase {
                 primaryPercent: 6.4,
                 weeklyPercent: 8.2
             ),
-            timezone: TimeZone(secondsFromGMT: 0)!
+            timezone: TimeZone(secondsFromGMT: 0)!,
+            now: Date(timeIntervalSince1970: 1_000_000)
         )
         let updatedDisplay = CodexUsageDisplay(
             snapshot: sampleSnapshot(
@@ -106,7 +151,8 @@ final class CodexUsageFormattingTests: XCTestCase {
                 primaryPercent: 12.4,
                 weeklyPercent: 18.5
             ),
-            timezone: TimeZone(secondsFromGMT: 0)!
+            timezone: TimeZone(secondsFromGMT: 0)!,
+            now: Date(timeIntervalSince1970: 1_000_030)
         )
 
         state.render(initialDisplay)

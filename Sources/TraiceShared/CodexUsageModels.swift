@@ -150,7 +150,9 @@ struct CodexUsageDisplay {
     let primaryUsageValue: Double
     let weeklyUsageValue: Double
     let primaryResetText: String
+    let primaryResetAbsoluteText: String
     let weeklyResetText: String
+    let weeklyResetAbsoluteText: String
     let primaryResetRelativeText: String
     let weeklyResetRelativeText: String
     let planType: String?
@@ -159,34 +161,46 @@ struct CodexUsageDisplay {
     let resetCreditCount: Int?
     let resetCreditError: String?
     let creditSummaries: [CodexResetCreditDisplay]
+    let soonestResetCreditExpirationRelativeText: String?
     let checkedAtText: String
+    let checkedAtRelativeText: String
 
-    init(snapshot: CodexUsageSnapshot, timezone: TimeZone = CodexUsageFormatting.configuredTimeZone()) {
+    init(
+        snapshot: CodexUsageSnapshot,
+        timezone: TimeZone = CodexUsageFormatting.configuredTimeZone(),
+        now: Date? = nil
+    ) {
         let response = snapshot.usage
         let primary = response.rateLimit?.primaryWindow
         let weekly = response.rateLimit?.secondaryWindow
-        let now = snapshot.checkedAt
+        let snapshotTime = snapshot.checkedAt
+        let displayNow = now ?? snapshotTime
+        let primaryResetDate = CodexUsageFormatting.resetDate(primary)
+        let weeklyResetDate = CodexUsageFormatting.resetDate(weekly)
 
         primaryPercent = CodexUsageFormatting.formatPercent(primary?.usedPercent)
         weeklyPercent = CodexUsageFormatting.formatPercent(weekly?.usedPercent)
         primaryUsageValue = CodexUsageFormatting.clampedUnitValue(primary?.usedPercent)
         weeklyUsageValue = CodexUsageFormatting.clampedUnitValue(weekly?.usedPercent)
-        primaryResetText = CodexUsageFormatting.formatReset(primary, timezone: timezone, now: now)
-        weeklyResetText = CodexUsageFormatting.formatReset(weekly, timezone: timezone, now: now)
+        primaryResetAbsoluteText = CodexUsageFormatting.formatOptionalDate(primaryResetDate, timezone: timezone)
+        weeklyResetAbsoluteText = CodexUsageFormatting.formatOptionalDate(weeklyResetDate, timezone: timezone)
         primaryResetRelativeText = CodexUsageFormatting.formatOptionalRelative(
-            CodexUsageFormatting.resetDate(primary),
-            now: now
+            primaryResetDate,
+            now: displayNow
         )
         weeklyResetRelativeText = CodexUsageFormatting.formatOptionalRelative(
-            CodexUsageFormatting.resetDate(weekly),
-            now: now
+            weeklyResetDate,
+            now: displayNow
         )
+        primaryResetText = "\(primaryResetAbsoluteText) (\(primaryResetRelativeText))"
+        weeklyResetText = "\(weeklyResetAbsoluteText) (\(weeklyResetRelativeText))"
         planType = response.planType
         allowedText = CodexUsageFormatting.yesNo(response.rateLimit?.allowed)
         limitReachedText = CodexUsageFormatting.yesNo(response.rateLimit?.limitReached)
         resetCreditCount = snapshot.resetCreditList?.availableCount ?? response.resetCredits?.availableCount
         resetCreditError = snapshot.resetCreditError
-        checkedAtText = CodexUsageFormatting.formatDate(now, timezone: timezone)
+        checkedAtText = CodexUsageFormatting.formatDate(snapshotTime, timezone: timezone)
+        checkedAtRelativeText = CodexUsageFormatting.formatRelative(snapshotTime, now: displayNow)
 
         let credits = snapshot.resetCreditList?.credits ?? []
         creditSummaries = credits
@@ -197,18 +211,21 @@ struct CodexUsageDisplay {
             .enumerated()
             .map { index, credit in
                 let expiresAt = CodexUsageFormatting.parseISODate(credit.expiresAtRaw)
+                let grantedAt = CodexUsageFormatting.parseISODate(credit.grantedAtRaw)
                 return CodexResetCreditDisplay(
                     id: "\(index)-\(credit.title ?? "reset")-\(credit.expiresAtRaw ?? "")",
                     title: credit.title ?? "Codex reset",
                     status: credit.status ?? "unknown",
                     expiresText: CodexUsageFormatting.formatOptionalDate(expiresAt, timezone: timezone),
-                    expiresRelativeText: CodexUsageFormatting.formatOptionalRelative(expiresAt, now: now),
+                    expiresRelativeText: CodexUsageFormatting.formatOptionalRelative(expiresAt, now: displayNow),
                     grantedText: CodexUsageFormatting.formatOptionalDate(
-                        CodexUsageFormatting.parseISODate(credit.grantedAtRaw),
+                        grantedAt,
                         timezone: timezone
-                    )
+                    ),
+                    grantedRelativeText: CodexUsageFormatting.formatOptionalRelative(grantedAt, now: displayNow)
                 )
             }
+        soonestResetCreditExpirationRelativeText = creditSummaries.first?.expiresRelativeText
     }
 }
 
@@ -261,4 +278,5 @@ struct CodexResetCreditDisplay: Identifiable {
     let expiresText: String
     let expiresRelativeText: String
     let grantedText: String
+    let grantedRelativeText: String
 }
