@@ -122,7 +122,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         lastSuccessfulSnapshot = snapshot
         lastCursorSnapshot = cursor
         lastDisplaySignature = displaySignature
-        try? CodexUsageSnapshotStore.saveSnapshot(snapshot)
+        try? TraiceUsageSnapshotStore.saveSnapshot(TraiceUsageSnapshot(codex: snapshot, cursor: cursor))
         if shouldReloadWidgets {
             WidgetCenter.shared.reloadAllTimelines()
         }

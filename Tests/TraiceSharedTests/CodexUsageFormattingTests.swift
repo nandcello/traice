@@ -339,4 +339,62 @@ final class CodexUsageFormattingTests: XCTestCase {
         )
         XCTAssertEqual(CodexUsageSnapshotStore.loadCachedSnapshot(from: url)?.checkedAt, snapshot.checkedAt)
     }
+
+    func testTraiceSnapshotStoreRoundTripsCombinedSnapshot() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("usage-snapshot.json")
+        defer {
+            try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+        }
+        let codex = sampleSnapshot(checkedAt: Date(timeIntervalSince1970: 1_000_000))
+        let cursor = CursorUsageSnapshot(
+            currentPeriodUsage: CursorCurrentPeriodUsageResponse(
+                planUsage: CursorPlanUsage(
+                    used: nil,
+                    limit: 10_000,
+                    percentUsed: nil,
+                    totalPercentUsed: 48,
+                    autoPercentUsed: 12,
+                    apiPercentUsed: 46,
+                    totalSpend: nil,
+                    includedSpend: 4_800,
+                    remaining: nil
+                ),
+                totalPercentUsed: nil,
+                percentUsed: nil,
+                hardLimit: nil,
+                currentSpend: nil
+            ),
+            legacyUsage: nil,
+            stripe: nil,
+            error: nil,
+            checkedAt: Date(timeIntervalSince1970: 1_000_030)
+        )
+        let snapshot = TraiceUsageSnapshot(codex: codex, cursor: cursor)
+
+        try TraiceUsageSnapshotStore.saveSnapshot(snapshot, to: url)
+        let loaded = try TraiceUsageSnapshotStore.loadSnapshot(from: url)
+
+        XCTAssertEqual(loaded.codex.checkedAt, codex.checkedAt)
+        XCTAssertEqual(loaded.cursor?.checkedAt, cursor.checkedAt)
+        XCTAssertEqual(loaded.checkedAt, cursor.checkedAt)
+    }
+
+    func testTraiceSnapshotStoreLoadsLegacyCodexSnapshot() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("usage-snapshot.json")
+        defer {
+            try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+        }
+        let codex = sampleSnapshot(checkedAt: Date(timeIntervalSince1970: 1_000_000))
+
+        try CodexUsageSnapshotStore.saveSnapshot(codex, to: url)
+        let loaded = try TraiceUsageSnapshotStore.loadSnapshot(from: url)
+
+        XCTAssertEqual(loaded.codex.checkedAt, codex.checkedAt)
+        XCTAssertNil(loaded.cursor)
+        XCTAssertEqual(loaded.checkedAt, codex.checkedAt)
+    }
 }

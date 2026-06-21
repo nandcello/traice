@@ -114,6 +114,22 @@ struct CodexUsageSnapshot: Codable {
     let checkedAt: Date
 }
 
+struct TraiceUsageSnapshot: Codable {
+    let codex: CodexUsageSnapshot
+    let cursor: CursorUsageSnapshot?
+    let checkedAt: Date
+
+    init(
+        codex: CodexUsageSnapshot,
+        cursor: CursorUsageSnapshot?,
+        checkedAt: Date? = nil
+    ) {
+        self.codex = codex
+        self.cursor = cursor
+        self.checkedAt = checkedAt ?? max(codex.checkedAt, cursor?.checkedAt ?? codex.checkedAt)
+    }
+}
+
 enum CodexUsageSnapshotStore {
     static func loadCachedSnapshot(from url: URL = snapshotURL()) -> CodexUsageSnapshot? {
         try? loadSnapshot(from: url)
@@ -150,6 +166,50 @@ enum CodexUsageSnapshotStore {
 
     static func snapshotURL() -> URL {
         URL(fileURLWithPath: CodexUsageFormatting.expandedPath(CodexUsageConfig.snapshotCachePath))
+    }
+}
+
+enum TraiceUsageSnapshotStore {
+    static func loadCachedSnapshot(from url: URL = CodexUsageSnapshotStore.snapshotURL()) -> TraiceUsageSnapshot? {
+        try? loadSnapshot(from: url)
+    }
+
+    static func loadFreshSnapshot(
+        now: Date = Date(),
+        maxAge: TimeInterval = CodexUsageConfig.cachedSnapshotMaxAge,
+        from url: URL = CodexUsageSnapshotStore.snapshotURL()
+    ) -> TraiceUsageSnapshot? {
+        guard let snapshot = loadCachedSnapshot(from: url) else { return nil }
+        return isFresh(snapshot, now: now, maxAge: maxAge) ? snapshot : nil
+    }
+
+    static func loadSnapshot(from url: URL = CodexUsageSnapshotStore.snapshotURL()) throws -> TraiceUsageSnapshot {
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        if let snapshot = try? decoder.decode(TraiceUsageSnapshot.self, from: data) {
+            return snapshot
+        }
+
+        let codexSnapshot = try decoder.decode(CodexUsageSnapshot.self, from: data)
+        return TraiceUsageSnapshot(codex: codexSnapshot, cursor: nil, checkedAt: codexSnapshot.checkedAt)
+    }
+
+    static func saveSnapshot(
+        _ snapshot: TraiceUsageSnapshot,
+        to url: URL = CodexUsageSnapshotStore.snapshotURL()
+    ) throws {
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let data = try JSONEncoder().encode(snapshot)
+        try data.write(to: url, options: [.atomic])
+    }
+
+    static func isFresh(
+        _ snapshot: TraiceUsageSnapshot,
+        now: Date = Date(),
+        maxAge: TimeInterval = CodexUsageConfig.cachedSnapshotMaxAge
+    ) -> Bool {
+        abs(now.timeIntervalSince(snapshot.checkedAt)) <= maxAge
     }
 }
 

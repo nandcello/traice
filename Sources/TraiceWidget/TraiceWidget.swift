@@ -9,7 +9,7 @@ struct TraiceEntry: TimelineEntry {
 
 enum TraiceWidgetState {
     case placeholder
-    case success(CodexUsageSnapshot)
+    case success(TraiceUsageSnapshot)
     case failure(String, Date)
 }
 
@@ -43,13 +43,13 @@ struct TraiceProvider: TimelineProvider {
 
     private func loadEntry() async -> TraiceEntry {
         let checkedAt = Date()
-        if let cachedSnapshot = CodexUsageSnapshotStore.loadCachedSnapshot() {
+        if let cachedSnapshot = TraiceUsageSnapshotStore.loadCachedSnapshot() {
             return TraiceEntry(date: cachedSnapshot.checkedAt, state: .success(cachedSnapshot))
         }
 
         do {
             let snapshot = try await CodexUsageClient().fetchSnapshot(checkedAt: checkedAt)
-            return TraiceEntry(date: checkedAt, state: .success(snapshot))
+            return TraiceEntry(date: checkedAt, state: .success(TraiceUsageSnapshot(codex: snapshot, cursor: nil)))
         } catch {
             return TraiceEntry(date: checkedAt, state: .failure(error.localizedDescription, checkedAt))
         }
@@ -66,7 +66,7 @@ struct TraiceWidgetView: View {
             case .placeholder:
                 placeholderView
             case .success(let snapshot):
-                contentView(CodexUsageDisplay(snapshot: snapshot))
+                contentView(snapshot)
             case .failure(let message, let checkedAt):
                 errorView(message: message, checkedAt: checkedAt)
             }
@@ -79,9 +79,10 @@ struct TraiceWidgetView: View {
 
     private var placeholderView: some View {
         VStack(alignment: .leading, spacing: 10) {
-            header(title: "Codex", subtitle: "Usage")
+            header(title: "Traice", subtitle: "Usage")
             UsageMeter(label: "5h", percentText: "--%", value: 0.38, tint: .cyan)
             UsageMeter(label: "Weekly", percentText: "--%", value: 0.22, tint: .orange)
+            UsageMeter(label: "Cursor", percentText: "--%", value: 0.18, tint: .mint)
             Spacer(minLength: 0)
             Text("Checking usage")
                 .font(.caption)
@@ -92,39 +93,43 @@ struct TraiceWidgetView: View {
     }
 
     @ViewBuilder
-    private func contentView(_ display: CodexUsageDisplay) -> some View {
+    private func contentView(_ snapshot: TraiceUsageSnapshot) -> some View {
+        let codexDisplay = CodexUsageDisplay(snapshot: snapshot.codex)
+        let cursorDisplay = snapshot.cursor.map { CursorUsageDisplay(snapshot: $0) }
         switch family {
         case .systemSmall:
-            smallContent(display)
+            smallContent(codexDisplay, cursor: cursorDisplay)
         case .systemLarge:
-            largeContent(display)
+            largeContent(codexDisplay, cursor: cursorDisplay)
         default:
-            mediumContent(display)
+            mediumContent(codexDisplay, cursor: cursorDisplay)
         }
     }
 
-    private func smallContent(_ display: CodexUsageDisplay) -> some View {
+    private func smallContent(_ display: CodexUsageDisplay, cursor: CursorUsageDisplay?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            header(title: "Codex", subtitle: "Usage")
+            header(title: "Traice", subtitle: "Usage")
             UsageMeter(label: "5h", percentText: display.primaryPercent, value: display.primaryUsageValue, tint: .cyan)
             UsageMeter(label: "Weekly", percentText: display.weeklyPercent, value: display.weeklyUsageValue, tint: .orange)
+            CursorMeter(display: cursor, compact: true)
             Spacer(minLength: 0)
             ResetLine(label: "Next", value: display.primaryResetRelativeText)
         }
         .padding()
     }
 
-    private func mediumContent(_ display: CodexUsageDisplay) -> some View {
+    private func mediumContent(_ display: CodexUsageDisplay, cursor: CursorUsageDisplay?) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            header(title: "Codex", subtitle: "Usage")
+            header(title: "Traice", subtitle: "Usage")
             HStack(spacing: 16) {
                 UsageMeter(label: "5h", percentText: display.primaryPercent, value: display.primaryUsageValue, tint: .cyan)
                 UsageMeter(label: "Weekly", percentText: display.weeklyPercent, value: display.weeklyUsageValue, tint: .orange)
+                CursorMeter(display: cursor, compact: true)
             }
             VStack(alignment: .leading, spacing: 6) {
                 ResetLine(label: "5h reset", value: display.primaryResetRelativeText)
                 ResetLine(label: "Weekly reset", value: display.weeklyResetRelativeText)
-                ResetLine(label: "Credits", value: display.resetCreditCount.map(String.init) ?? "unknown")
+                ResetLine(label: "Cursor", value: cursor?.summary ?? "unavailable")
             }
             Spacer(minLength: 0)
             footer(display.checkedAtText)
@@ -132,14 +137,31 @@ struct TraiceWidgetView: View {
         .padding()
     }
 
-    private func largeContent(_ display: CodexUsageDisplay) -> some View {
+    private func largeContent(_ display: CodexUsageDisplay, cursor: CursorUsageDisplay?) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            mediumHeader(display)
+            mediumHeader(display, cursor: cursor)
             VStack(alignment: .leading, spacing: 6) {
                 ResetLine(label: "5h reset", value: display.primaryResetText)
                 ResetLine(label: "Weekly reset", value: display.weeklyResetText)
                 ResetLine(label: "Allowed", value: display.allowedText)
                 ResetLine(label: "Limited", value: display.limitReachedText)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Cursor usage")
+                    .font(.caption.weight(.semibold))
+                if let cursor {
+                    ForEach(cursor.usageDetailLines.prefix(3), id: \.label) { line in
+                        ResetLine(label: line.label, value: line.value)
+                    }
+                    ResetLine(label: "Plan", value: cursor.planText)
+                } else {
+                    Text("No Cursor snapshot cached")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Divider()
@@ -176,10 +198,10 @@ struct TraiceWidgetView: View {
         .padding()
     }
 
-    private func mediumHeader(_ display: CodexUsageDisplay) -> some View {
+    private func mediumHeader(_ display: CodexUsageDisplay, cursor: CursorUsageDisplay?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                header(title: "Codex", subtitle: display.planType ?? "Usage")
+                header(title: "Traice", subtitle: display.planType ?? "Usage")
                 Spacer()
                 Text(display.resetCreditCount.map { "\($0) credits" } ?? "credits --")
                     .font(.caption.weight(.semibold))
@@ -188,6 +210,7 @@ struct TraiceWidgetView: View {
             HStack(spacing: 16) {
                 UsageMeter(label: "5h", percentText: display.primaryPercent, value: display.primaryUsageValue, tint: .cyan)
                 UsageMeter(label: "Weekly", percentText: display.weeklyPercent, value: display.weeklyUsageValue, tint: .orange)
+                CursorMeter(display: cursor, compact: false)
             }
         }
     }
@@ -268,6 +291,25 @@ private struct UsageMeter: View {
     }
 }
 
+private struct CursorMeter: View {
+    let display: CursorUsageDisplay?
+    let compact: Bool
+
+    var body: some View {
+        UsageMeter(
+            label: compact ? "Cur" : "Cursor",
+            percentText: percentText,
+            value: display?.value ?? 0,
+            tint: .mint
+        )
+    }
+
+    private var percentText: String {
+        guard let display else { return "--" }
+        return display.usageDetailLines.first { $0.label == "Total" }?.value ?? display.summary
+    }
+}
+
 private struct ResetLine: View {
     let label: String
     let value: String
@@ -296,7 +338,7 @@ struct TraiceWidget: Widget {
             TraiceWidgetView(entry: entry)
         }
         .configurationDisplayName("Traice")
-        .description("Shows Codex 5-hour and weekly usage, reset times, and reset credits.")
+        .description("Shows Codex and Cursor usage, reset times, and reset credits.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

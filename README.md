@@ -2,7 +2,7 @@
 
 ## About
 
-Traice is a native macOS menu bar app and Notification Center widget for Codex 5-hour and weekly usage, reset times, and reset credits.
+Traice is a native macOS menu bar app and Notification Center widget for Codex 5-hour and weekly usage, Cursor usage, reset times, and reset credits.
 
 This project is unofficial and is not affiliated with OpenAI. It reads your local Codex auth file and calls private ChatGPT/Codex usage endpoints that may change without notice.
 
@@ -21,6 +21,7 @@ Menu bar
 ## Features
 
 - Track Codex 5-hour and weekly usage from the macOS menu bar and Notification Center widget.
+- Track Cursor usage from the menu bar and widget when Cursor auth is available locally.
 - See when the 5-hour and weekly usage windows reset, including relative times in the widget and exact timestamps in the menu bar dropdown.
 - View available Codex reset credits and when each credit expires.
 - Refresh menu bar usage about every 30 seconds and share fresh snapshots with the widget when macOS allows it to reload.
@@ -30,7 +31,8 @@ Menu bar
 - macOS 14 or newer.
 - Codex Desktop signed in on the same Mac.
 - A readable Codex auth file at `~/.codex/auth.json`.
-- Network access to the ChatGPT/Codex usage endpoints.
+- Cursor signed in on the same Mac for Cursor usage.
+- Network access to the ChatGPT/Codex and Cursor usage endpoints.
 
 ## Install
 
@@ -72,11 +74,16 @@ Optional runtime environment variables:
 
 ```sh
 CODEX_AUTH_PATH=~/.codex/auth.json
+CURSOR_AUTH_DB_PATH=~/Library/Application Support/Cursor/User/globalStorage/state.vscdb
+CURSOR_USAGE_ENABLED=1
 CODEX_USAGE_TIMEZONE=UTC
 CODEX_USAGE_TIMEOUT=60
+CURSOR_USAGE_TIMEOUT=60
 ```
 
 If `CODEX_USAGE_TIMEZONE` is omitted, Traice uses the Mac's current system timezone. The widget sandbox is limited to the default `~/.codex/auth.json` path; use `CODEX_AUTH_PATH` for the menu bar app only unless you also update the widget entitlement and rebuild.
+
+Cursor usage is fetched by the menu bar app from Cursor's local auth database and cached into Traice's shared usage snapshot. The widget reads that sanitized Traice snapshot instead of reading Cursor's database directly.
 
 Optional installer overrides:
 
@@ -118,6 +125,6 @@ Use a separate `-derivedDataPath` when running build and test commands concurren
 
 ## Privacy
 
-Traice reads the local Codex auth file only to make authenticated usage requests. It does not persist, transmit, or log your access token outside those requests.
+Traice reads the local Codex auth file and Cursor auth database only to make authenticated usage requests. It does not persist, transmit, or log your access tokens outside those requests.
 
-The widget extension is sandboxed with read-only access to `~/.codex/auth.json` and outbound network access.
+The widget extension is sandboxed with read-only access to `~/.codex/auth.json`, Traice's cached usage snapshot, and outbound network access. Cursor usage shown in the widget comes from the cached Traice snapshot written by the menu bar app.
