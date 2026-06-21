@@ -24,6 +24,8 @@
 		B00000000000000000000003 /* CodexUsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* CodexUsageModels.swift */; };
 		B00000000000000000000004 /* CodexUsageFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000023 /* CodexUsageFormatting.swift */; };
 		B00000000000000000000005 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000006 /* XCTest.framework */; };
+		B00000000000000000000010 /* MenuHeaderViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000011 /* MenuHeaderViewTests.swift */; };
+		B00000000000000000000012 /* TraiceMenuBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* TraiceMenuBar.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,6 +70,7 @@
 		B00000000000000000000002 /* CodexUsageFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageFormattingTests.swift; sourceTree = "<group>"; };
 		B00000000000000000000006 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		B00000000000000000000007 /* Traice Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Traice Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B00000000000000000000011 /* MenuHeaderViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuHeaderViewTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -158,6 +161,7 @@
 			isa = PBXGroup;
 			children = (
 				B00000000000000000000002 /* CodexUsageFormattingTests.swift */,
+				B00000000000000000000011 /* MenuHeaderViewTests.swift */,
 			);
 			name = TraiceSharedTests;
 			path = Tests/TraiceSharedTests;
@@ -327,7 +331,9 @@
 			files = (
 				B00000000000000000000003 /* CodexUsageModels.swift in Sources */,
 				B00000000000000000000004 /* CodexUsageFormatting.swift in Sources */,
+				B00000000000000000000012 /* TraiceMenuBar.swift in Sources */,
 				B00000000000000000000001 /* CodexUsageFormattingTests.swift in Sources */,
+				B00000000000000000000010 /* MenuHeaderViewTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -583,6 +589,7 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG TESTING";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Debug;
@@ -602,6 +609,7 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = TESTING;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Release;

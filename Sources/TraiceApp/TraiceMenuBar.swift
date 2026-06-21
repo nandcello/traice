@@ -1,7 +1,9 @@
 import Cocoa
 import Foundation
+import QuartzCore
 import WidgetKit
 
+#if !TESTING
 @main
 private struct CodexUsageApp {
     private static var delegate: AppDelegate?
@@ -15,7 +17,9 @@ private struct CodexUsageApp {
         app.run()
     }
 }
+#endif
 
+#if !TESTING
 @MainActor
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     private let client = CodexUsageClient()
@@ -26,6 +30,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastSuccessfulSnapshot: CodexUsageSnapshot?
     private var lastDisplaySignature: String?
     private var menuBarState = CodexUsageMenuBarState()
+    private var isMenuHeaderExpanded = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -102,7 +107,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-        menu.addView(MenuHeaderView(display: display))
+        menu.addView(MenuHeaderView(display: display, expanded: isMenuHeaderExpanded) { [weak self] expanded in
+            self?.isMenuHeaderExpanded = expanded
+        })
         addFooter(to: menu)
         statusItem.menu = menu
     }
@@ -171,6 +178,7 @@ extension AppDelegate: NSMenuDelegate {
         }
     }
 }
+#endif
 
 private extension NSMenu {
     func addView(_ view: NSView) {
@@ -196,19 +204,34 @@ private extension NSMenu {
     }
 }
 
-private final class MenuHeaderView: NSView {
+final class MenuHeaderView: NSView {
     private static let menuWidth: CGFloat = 340
     private static let horizontalInset: CGFloat = 18
     private static let contentWidth = menuWidth - horizontalInset * 2
     private static let summaryHeight: CGFloat = 58
+    private static let animationDuration: TimeInterval = 0.22
 
     private let display: CodexUsageDisplay
-    private var expanded = false
+    private let onExpansionChange: (Bool) -> Void
+    private var expanded: Bool
+    private var currentHeight: CGFloat
+    private var rootHeightConstraint: NSLayoutConstraint?
+    private var detailHeightConstraint: NSLayoutConstraint?
+    private var animationTimer: Timer?
+    private weak var detailClipView: NSView?
+    private weak var chevronView: NSImageView?
+    private weak var chevronHostView: NSView?
+    private var chevronRotation: CGFloat
 
-    init(display: CodexUsageDisplay) {
+    init(display: CodexUsageDisplay, expanded: Bool, onExpansionChange: @escaping (Bool) -> Void) {
         self.display = display
+        self.expanded = expanded
+        self.onExpansionChange = onExpansionChange
+        chevronRotation = Self.chevronRotation(for: expanded)
+        currentHeight = Self.summaryHeight
         super.init(frame: .zero)
         build()
+        applyExpansionState(animated: false)
     }
 
     @available(*, unavailable)
@@ -216,9 +239,22 @@ private final class MenuHeaderView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    deinit {
+        animationTimer?.invalidate()
+    }
+
     override var intrinsicContentSize: NSSize {
-        let creditHeight = display.creditSummaries.isEmpty ? 18 : CGFloat(display.creditSummaries.count * 58)
-        return NSSize(width: Self.menuWidth, height: expanded ? 232 + creditHeight : Self.summaryHeight)
+        NSSize(width: Self.menuWidth, height: currentHeight)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyChevronRotation()
+    }
+
+    override func layout() {
+        super.layout()
+        applyChevronRotation()
     }
 
     private func build() {
@@ -242,9 +278,19 @@ private final class MenuHeaderView: NSView {
         ])
 
         stack.addArrangedSubview(summaryButton())
-        if expanded {
-            stack.addArrangedSubview(detailsView())
-        }
+        let detailClip = clippedDetailsView()
+        stack.addArrangedSubview(detailClip)
+        detailClipView = detailClip
+
+        let rootHeightConstraint = heightAnchor.constraint(equalToConstant: Self.summaryHeight)
+        let detailHeightConstraint = detailClip.heightAnchor.constraint(equalToConstant: 0)
+        self.rootHeightConstraint = rootHeightConstraint
+        self.detailHeightConstraint = detailHeightConstraint
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: Self.menuWidth),
+            rootHeightConstraint,
+            detailHeightConstraint
+        ])
     }
 
     private func summaryButton() -> NSButton {
@@ -287,15 +333,30 @@ private final class MenuHeaderView: NSView {
         textStack.addArrangedSubview(title)
         textStack.addArrangedSubview(subtitle)
 
-        let chevronName = expanded ? "chevron.down" : "chevron.right"
-        let chevron = NSImageView(image: NSImage(systemSymbolName: chevronName, accessibilityDescription: nil) ?? NSImage())
-        chevron.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        let chevronHost = NSView()
+        chevronHost.translatesAutoresizingMaskIntoConstraints = false
+        chevronHost.wantsLayer = true
+        chevronHost.layer?.masksToBounds = true
+
+        let chevron = NSImageView(image: NSImage(systemSymbolName: "chevron.right", accessibilityDescription: nil) ?? NSImage())
+        chevron.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
         chevron.contentTintColor = .secondaryLabelColor
+        chevron.imageAlignment = .alignCenter
+        chevron.imageScaling = .scaleProportionallyDown
         chevron.translatesAutoresizingMaskIntoConstraints = false
         chevron.setContentCompressionResistancePriority(.required, for: .horizontal)
+        chevron.setContentHuggingPriority(.required, for: .horizontal)
+        chevron.setContentHuggingPriority(.required, for: .vertical)
+        chevronHost.addSubview(chevron)
+        chevronView = chevron
+        chevronHostView = chevronHost
         NSLayoutConstraint.activate([
-            chevron.widthAnchor.constraint(equalToConstant: 18),
-            chevron.heightAnchor.constraint(equalToConstant: 18)
+            chevronHost.widthAnchor.constraint(equalToConstant: 18),
+            chevronHost.heightAnchor.constraint(equalToConstant: 18),
+            chevron.centerXAnchor.constraint(equalTo: chevronHost.centerXAnchor),
+            chevron.centerYAnchor.constraint(equalTo: chevronHost.centerYAnchor),
+            chevron.widthAnchor.constraint(lessThanOrEqualTo: chevronHost.widthAnchor),
+            chevron.heightAnchor.constraint(lessThanOrEqualTo: chevronHost.heightAnchor)
         ])
 
         content.addArrangedSubview(icon)
@@ -303,7 +364,7 @@ private final class MenuHeaderView: NSView {
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         content.addArrangedSubview(spacer)
-        content.addArrangedSubview(chevron)
+        content.addArrangedSubview(chevronHost)
 
         NSLayoutConstraint.activate([
             button.widthAnchor.constraint(equalToConstant: Self.menuWidth),
@@ -318,10 +379,133 @@ private final class MenuHeaderView: NSView {
 
     @objc private func toggleExpanded() {
         expanded.toggle()
-        build()
-        invalidateIntrinsicContentSize()
-        superview?.layoutSubtreeIfNeeded()
-        window?.layoutIfNeeded()
+        onExpansionChange(expanded)
+        applyExpansionState(animated: true)
+    }
+
+    private func applyExpansionState(animated: Bool) {
+        let detailHeight = measuredDetailHeight()
+        let targetDetailHeight = expanded ? detailHeight : 0
+        let targetHeight = expanded ? Self.summaryHeight + detailHeight : Self.summaryHeight
+        let targetAlpha: CGFloat = expanded ? 1 : 0
+        let targetRotation = Self.chevronRotation(for: expanded)
+
+        if !animated {
+            currentHeight = targetHeight
+            rootHeightConstraint?.constant = targetHeight
+            detailHeightConstraint?.constant = targetDetailHeight
+            detailClipView?.alphaValue = targetAlpha
+            chevronRotation = targetRotation
+            applyChevronRotation()
+            invalidateIntrinsicContentSize()
+            layoutSubtreeIfNeeded()
+            return
+        }
+
+        animationTimer?.invalidate()
+        let startTime = CACurrentMediaTime()
+        let startHeight = currentHeight
+        let startDetailHeight = detailHeightConstraint?.constant ?? 0
+        let startAlpha = detailClipView?.alphaValue ?? 0
+        let startRotation = chevronRotation
+
+        let timer = Timer(timeInterval: 1 / 60, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+
+            let elapsed = CACurrentMediaTime() - startTime
+            let progress = min(max(elapsed / Self.animationDuration, 0), 1)
+            let easedProgress = 0.5 - 0.5 * cos(progress * Double.pi)
+            let eased = CGFloat(easedProgress)
+
+            currentHeight = startHeight + (targetHeight - startHeight) * eased
+            rootHeightConstraint?.constant = currentHeight
+            detailHeightConstraint?.constant = startDetailHeight + (targetDetailHeight - startDetailHeight) * eased
+            detailClipView?.alphaValue = startAlpha + (targetAlpha - startAlpha) * eased
+            chevronRotation = startRotation + (targetRotation - startRotation) * eased
+            invalidateIntrinsicContentSize()
+            superview?.layoutSubtreeIfNeeded()
+            window?.layoutIfNeeded()
+            applyChevronRotation()
+
+            if progress >= 1 {
+                timer.invalidate()
+                animationTimer = nil
+                currentHeight = targetHeight
+                rootHeightConstraint?.constant = targetHeight
+                detailHeightConstraint?.constant = targetDetailHeight
+                detailClipView?.alphaValue = targetAlpha
+                chevronRotation = targetRotation
+                invalidateIntrinsicContentSize()
+                superview?.layoutSubtreeIfNeeded()
+                window?.layoutIfNeeded()
+                applyChevronRotation()
+            }
+        }
+        animationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private static func chevronRotation(for expanded: Bool) -> CGFloat {
+        expanded ? -CGFloat.pi / 2 : 0
+    }
+
+    private static func rotationTransform(for bounds: NSRect, angle: CGFloat) -> CGAffineTransform {
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        var transform = CGAffineTransform(translationX: center.x, y: center.y)
+        transform = transform.rotated(by: angle)
+        transform = transform.translatedBy(x: -center.x, y: -center.y)
+        return transform
+    }
+
+    private func applyChevronRotation() {
+        guard let chevronHostView else { return }
+
+        chevronHostView.wantsLayer = true
+        chevronView?.layer?.setAffineTransform(.identity)
+        if abs(chevronView?.frameCenterRotation ?? 0) > 0.001 {
+            chevronView?.frameCenterRotation = 0
+        }
+        if abs(chevronView?.boundsRotation ?? 0) > 0.001 {
+            chevronView?.boundsRotation = 0
+        }
+
+        let bounds = chevronHostView.bounds
+        guard bounds.width > 0, bounds.height > 0 else { return }
+
+        let transform = Self.rotationTransform(for: bounds, angle: chevronRotation)
+        chevronHostView.layer?.setAffineTransform(transform)
+    }
+
+    private func clippedDetailsView() -> NSView {
+        let clip = NSView()
+        clip.wantsLayer = true
+        clip.layer?.masksToBounds = true
+        clip.alphaValue = 0
+        clip.translatesAutoresizingMaskIntoConstraints = false
+
+        let details = detailsView()
+        clip.addSubview(details)
+        NSLayoutConstraint.activate([
+            details.leadingAnchor.constraint(equalTo: clip.leadingAnchor),
+            details.trailingAnchor.constraint(equalTo: clip.trailingAnchor),
+            details.topAnchor.constraint(equalTo: clip.topAnchor)
+        ])
+
+        return clip
+    }
+
+    private func measuredDetailHeight() -> CGFloat {
+        guard let detailClipView,
+              let details = detailClipView.subviews.first else {
+            return 0
+        }
+
+        detailClipView.layoutSubtreeIfNeeded()
+        details.layoutSubtreeIfNeeded()
+        return ceil(details.fittingSize.height)
     }
 
     private var menuSubtitle: String {
