@@ -23,14 +23,19 @@ private struct CodexUsageApp {
 @MainActor
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     private let client = CodexUsageClient()
+    private let cursorClient = CursorUsageClient()
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var timer: Timer?
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshStartedAt: Date?
     private var lastSuccessfulSnapshot: CodexUsageSnapshot?
+    private var lastCursorSnapshot: CursorUsageSnapshot?
     private var lastDisplaySignature: String?
     private var menuBarState = CodexUsageMenuBarState()
-    private var isMenuHeaderExpanded = false
+    private var activeUsageProvider = ActiveUsageProvider.current()
+    private var isCodexHeaderExpanded = false
+    private var isCursorHeaderExpanded = false
+    private var activationObserver: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -42,6 +47,17 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
         setLoadingMenu()
         refresh(showLoading: true, force: true)
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.activeUsageProvider = ActiveUsageProvider.current()
+                self?.renderCurrentTitle()
+                self?.rebuildMenu()
+            }
+        }
 
         timer = Timer.scheduledTimer(withTimeInterval: CodexUsageConfig.menuBarRefreshInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -53,6 +69,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         refreshTask?.cancel()
         timer?.invalidate()
+        if let activationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
+        }
     }
 
     private func refresh(showLoading: Bool, force: Bool) {
@@ -73,9 +92,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             do {
-                let snapshot = try await client.fetchSnapshot(checkedAt: startedAt)
+                async let codexSnapshot = client.fetchSnapshot(checkedAt: startedAt)
+                async let cursorSnapshot = cursorClient.fetchSnapshot(checkedAt: startedAt)
+                let snapshot = try await codexSnapshot
+                let cursor = await cursorSnapshot
                 guard !Task.isCancelled else { return }
-                render(snapshot)
+                render(snapshot, cursor: cursor)
             } catch {
                 guard !Task.isCancelled else { return }
                 renderError(error)
@@ -83,18 +105,22 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func render(_ snapshot: CodexUsageSnapshot) {
+    private func render(_ snapshot: CodexUsageSnapshot, cursor: CursorUsageSnapshot?) {
         let display = CodexUsageDisplay(snapshot: snapshot, now: Date())
+        let cursorDisplay = cursor.map { CursorUsageDisplay(snapshot: $0, now: Date()) }
         let displaySignature = [
             display.primaryPercent,
             display.weeklyPercent,
             display.primaryResetText,
             display.weeklyResetText,
-            display.resetCreditCount.map(String.init) ?? "unknown"
+            display.resetCreditCount.map(String.init) ?? "unknown",
+            cursorDisplay?.title ?? "cursor-none",
+            cursorDisplay?.detailUsageText ?? "cursor-none"
         ].joined(separator: "|")
         let shouldReloadWidgets = displaySignature != lastDisplaySignature
 
         lastSuccessfulSnapshot = snapshot
+        lastCursorSnapshot = cursor
         lastDisplaySignature = displaySignature
         try? CodexUsageSnapshotStore.saveSnapshot(snapshot)
         if shouldReloadWidgets {
@@ -102,22 +128,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         menuBarState.render(display)
-        statusItem.button?.title = menuBarState.title
-        statusItem.button?.toolTip = CodexUsageMenuBarPresentation.toolTip(for: display)
-
-        let menu = NSMenu()
-        menu.delegate = self
-        menu.addView(MenuHeaderView(display: display, expanded: isMenuHeaderExpanded) { [weak self] expanded in
-            self?.isMenuHeaderExpanded = expanded
-        })
-        addFooter(to: menu)
-        statusItem.menu = menu
+        renderCurrentTitle()
+        rebuildMenu()
     }
 
     private func renderError(_ error: Error) {
         menuBarState.renderError()
-        statusItem.button?.title = menuBarState.title
-        statusItem.button?.toolTip = error.localizedDescription
+        renderCurrentTitle(error: error.localizedDescription)
 
         let menu = NSMenu()
         menu.delegate = self
@@ -125,6 +142,64 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addDisabled(error.localizedDescription)
         let checkedAt = lastRefreshStartedAt ?? Date()
         menu.addDisabled("Last check: \(CodexUsageFormatting.formatDate(checkedAt, timezone: CodexUsageFormatting.configuredTimeZone()))")
+        addFooter(to: menu)
+        statusItem.menu = menu
+    }
+
+    private func renderCurrentTitle(error: String? = nil) {
+        let codexDisplay = lastSuccessfulSnapshot.map { CodexUsageDisplay(snapshot: $0, now: Date()) }
+        let cursorDisplay = lastCursorSnapshot.map { CursorUsageDisplay(snapshot: $0, now: Date()) }
+
+        switch activeUsageProvider {
+        case .cursor:
+            if let cursorDisplay {
+                statusItem.button?.title = CursorUsageMenuBarPresentation.title(for: cursorDisplay)
+                statusItem.button?.toolTip = CursorUsageMenuBarPresentation.toolTip(for: cursorDisplay)
+            } else {
+                statusItem.button?.title = CursorUsageMenuBarPresentation.placeholderTitle
+                statusItem.button?.toolTip = error ?? "Cursor usage unavailable"
+            }
+        case .codex:
+            statusItem.button?.title = codexDisplay.map(CodexUsageMenuBarPresentation.title) ?? menuBarState.title
+            statusItem.button?.toolTip = codexDisplay.map(CodexUsageMenuBarPresentation.toolTip) ?? error ?? "Codex usage unavailable"
+        }
+    }
+
+    private func rebuildMenu() {
+        guard let snapshot = lastSuccessfulSnapshot else { return }
+
+        let codexDisplay = CodexUsageDisplay(snapshot: snapshot, now: Date())
+        let cursorDisplay = lastCursorSnapshot.map { CursorUsageDisplay(snapshot: $0, now: Date()) }
+        let menu = NSMenu()
+        menu.delegate = self
+
+        func addCodexHeader() {
+            menu.addView(MenuHeaderView(display: codexDisplay, expanded: isCodexHeaderExpanded) { [weak self] expanded in
+                self?.isCodexHeaderExpanded = expanded
+            })
+        }
+
+        func addCursorHeader() {
+            if let cursorDisplay {
+                menu.addView(CursorMenuHeaderView(display: cursorDisplay, expanded: isCursorHeaderExpanded) { [weak self] expanded in
+                    self?.isCursorHeaderExpanded = expanded
+                })
+            } else {
+                menu.addDisabled("Cursor unavailable")
+            }
+        }
+
+        switch activeUsageProvider {
+        case .cursor:
+            addCursorHeader()
+            menu.addSeparator()
+            addCodexHeader()
+        case .codex:
+            addCodexHeader()
+            menu.addSeparator()
+            addCursorHeader()
+        }
+
         addFooter(to: menu)
         statusItem.menu = menu
     }
@@ -152,7 +227,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openUsageSettings() {
-        NSWorkspace.shared.open(CodexUsageConfig.usageSettingsURL)
+        switch activeUsageProvider {
+        case .cursor:
+            NSWorkspace.shared.open(CursorUsageConfig.dashboardURL)
+        case .codex:
+            NSWorkspace.shared.open(CodexUsageConfig.usageSettingsURL)
+        }
     }
 
     @objc private func openAuthFolder() {
@@ -161,6 +241,27 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+}
+
+enum ActiveUsageProvider {
+    case codex
+    case cursor
+
+    static let codexBundleIdentifier = "com.openai.codex"
+
+    static func current(
+        runningApplication: NSRunningApplication? = NSWorkspace.shared.frontmostApplication
+    ) -> ActiveUsageProvider {
+        guard let bundleIdentifier = runningApplication?.bundleIdentifier else {
+            return .codex
+        }
+
+        if bundleIdentifier == CursorUsageConfig.bundleIdentifier {
+            return .cursor
+        }
+
+        return .codex
     }
 }
 
@@ -577,6 +678,287 @@ final class MenuHeaderView: NSView {
         stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
 
+        let name = label(labelText, font: .systemFont(ofSize: 13, weight: .regular), color: .secondaryLabelColor)
+        let value = label(valueText, font: .systemFont(ofSize: 13, weight: .medium), color: .labelColor)
+        value.lineBreakMode = .byTruncatingMiddle
+        stack.addArrangedSubview(name)
+        stack.addArrangedSubview(NSView())
+        stack.addArrangedSubview(value)
+        NSLayoutConstraint.activate([
+            stack.widthAnchor.constraint(equalToConstant: Self.contentWidth),
+            name.widthAnchor.constraint(greaterThanOrEqualToConstant: 54)
+        ])
+        return stack
+    }
+
+    private func separator() -> NSView {
+        let line = NSBox()
+        line.boxType = .separator
+        line.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            line.widthAnchor.constraint(equalToConstant: Self.contentWidth)
+        ])
+        return line
+    }
+
+    private func label(_ text: String, font: NSFont, color: NSColor) -> NSTextField {
+        let field = NSTextField(labelWithString: text)
+        field.font = font
+        field.textColor = color
+        field.lineBreakMode = .byTruncatingTail
+        field.maximumNumberOfLines = 1
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return field
+    }
+}
+
+final class CursorMenuHeaderView: NSView {
+    private static let menuWidth: CGFloat = 340
+    private static let horizontalInset: CGFloat = 18
+    private static let contentWidth = menuWidth - horizontalInset * 2
+    private static let summaryHeight: CGFloat = 58
+
+    private let display: CursorUsageDisplay
+    private let onExpansionChange: (Bool) -> Void
+    private var expanded: Bool
+    private var rootHeightConstraint: NSLayoutConstraint?
+    private var detailHeightConstraint: NSLayoutConstraint?
+    private weak var detailClipView: NSView?
+    private weak var chevronView: NSImageView?
+    private weak var chevronHostView: NSView?
+
+    init(display: CursorUsageDisplay, expanded: Bool, onExpansionChange: @escaping (Bool) -> Void) {
+        self.display = display
+        self.expanded = expanded
+        self.onExpansionChange = onExpansionChange
+        super.init(frame: .zero)
+        build()
+        applyExpansionState()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: Self.menuWidth, height: rootHeightConstraint?.constant ?? Self.summaryHeight)
+    }
+
+    override func layout() {
+        super.layout()
+        applyChevronRotation()
+    }
+
+    private func build() {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+        translatesAutoresizingMaskIntoConstraints = false
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .width
+        stack.spacing = 0
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+
+        stack.addArrangedSubview(summaryButton())
+        let detailClip = clippedDetailsView()
+        stack.addArrangedSubview(detailClip)
+        detailClipView = detailClip
+
+        let rootHeightConstraint = heightAnchor.constraint(equalToConstant: Self.summaryHeight)
+        let detailHeightConstraint = detailClip.heightAnchor.constraint(equalToConstant: 0)
+        self.rootHeightConstraint = rootHeightConstraint
+        self.detailHeightConstraint = detailHeightConstraint
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: Self.menuWidth),
+            rootHeightConstraint,
+            detailHeightConstraint
+        ])
+    }
+
+    private func summaryButton() -> NSButton {
+        let button = NSButton()
+        button.title = ""
+        button.isBordered = false
+        button.target = self
+        button.action = #selector(toggleExpanded)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 10
+        button.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.72).cgColor
+
+        let content = NSStackView()
+        content.orientation = .horizontal
+        content.alignment = .centerY
+        content.spacing = 10
+        content.translatesAutoresizingMaskIntoConstraints = false
+        button.addSubview(content)
+
+        let icon = NSImageView(image: NSImage(systemSymbolName: "cursorarrow", accessibilityDescription: nil) ?? NSImage())
+        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
+        icon.contentTintColor = .systemMint
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            icon.widthAnchor.constraint(equalToConstant: 32),
+            icon.heightAnchor.constraint(equalToConstant: 32)
+        ])
+
+        let textStack = NSStackView()
+        textStack.orientation = .vertical
+        textStack.alignment = .leading
+        textStack.spacing = 2
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+        textStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        textStack.addArrangedSubview(label("Cursor", font: .systemFont(ofSize: 16, weight: .semibold), color: .labelColor))
+        textStack.addArrangedSubview(label(display.summary, font: .systemFont(ofSize: 13, weight: .semibold), color: .secondaryLabelColor))
+
+        let chevronHost = NSView()
+        chevronHost.translatesAutoresizingMaskIntoConstraints = false
+        chevronHost.wantsLayer = true
+        chevronHost.layer?.masksToBounds = true
+        let chevron = NSImageView(image: NSImage(systemSymbolName: "chevron.right", accessibilityDescription: nil) ?? NSImage())
+        chevron.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
+        chevron.contentTintColor = .secondaryLabelColor
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+        chevronHost.addSubview(chevron)
+        chevronView = chevron
+        chevronHostView = chevronHost
+        NSLayoutConstraint.activate([
+            chevronHost.widthAnchor.constraint(equalToConstant: 18),
+            chevronHost.heightAnchor.constraint(equalToConstant: 18),
+            chevron.centerXAnchor.constraint(equalTo: chevronHost.centerXAnchor),
+            chevron.centerYAnchor.constraint(equalTo: chevronHost.centerYAnchor)
+        ])
+
+        content.addArrangedSubview(icon)
+        content.addArrangedSubview(textStack)
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        content.addArrangedSubview(spacer)
+        content.addArrangedSubview(chevronHost)
+
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: Self.menuWidth),
+            button.heightAnchor.constraint(equalToConstant: Self.summaryHeight),
+            content.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 12),
+            content.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -12),
+            content.centerYAnchor.constraint(equalTo: button.centerYAnchor)
+        ])
+
+        return button
+    }
+
+    @objc private func toggleExpanded() {
+        expanded.toggle()
+        onExpansionChange(expanded)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            applyExpansionState(animated: true)
+        }
+    }
+
+    private func applyExpansionState(animated: Bool = false) {
+        let detailHeight = measuredDetailHeight()
+        let targetDetailHeight = expanded ? detailHeight : 0
+        let targetHeight = Self.summaryHeight + targetDetailHeight
+        let animator = animated ? detailClipView?.animator() : detailClipView
+
+        rootHeightConstraint?.constant = targetHeight
+        detailHeightConstraint?.constant = targetDetailHeight
+        animator?.alphaValue = expanded ? 1 : 0
+        invalidateIntrinsicContentSize()
+        superview?.layoutSubtreeIfNeeded()
+        window?.layoutIfNeeded()
+        applyChevronRotation()
+    }
+
+    private func applyChevronRotation() {
+        guard let chevronHostView else { return }
+        chevronView?.layer?.setAffineTransform(.identity)
+        let bounds = chevronHostView.bounds
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        let angle = expanded ? -CGFloat.pi / 2 : 0
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        var transform = CGAffineTransform(translationX: center.x, y: center.y)
+        transform = transform.rotated(by: angle)
+        transform = transform.translatedBy(x: -center.x, y: -center.y)
+        chevronHostView.layer?.setAffineTransform(transform)
+    }
+
+    private func clippedDetailsView() -> NSView {
+        let clip = NSView()
+        clip.wantsLayer = true
+        clip.layer?.masksToBounds = true
+        clip.alphaValue = 0
+        clip.translatesAutoresizingMaskIntoConstraints = false
+
+        let details = detailsView()
+        clip.addSubview(details)
+        NSLayoutConstraint.activate([
+            details.leadingAnchor.constraint(equalTo: clip.leadingAnchor),
+            details.trailingAnchor.constraint(equalTo: clip.trailingAnchor),
+            details.topAnchor.constraint(equalTo: clip.topAnchor)
+        ])
+        return clip
+    }
+
+    private func measuredDetailHeight() -> CGFloat {
+        guard let detailClipView,
+              let details = detailClipView.subviews.first else {
+            return 0
+        }
+        detailClipView.layoutSubtreeIfNeeded()
+        details.layoutSubtreeIfNeeded()
+        return ceil(details.fittingSize.height)
+    }
+
+    private func detailsView() -> NSView {
+        let container = NSStackView()
+        container.orientation = .vertical
+        container.alignment = .leading
+        container.spacing = 8
+        container.edgeInsets = NSEdgeInsets(top: 12, left: Self.horizontalInset, bottom: 12, right: Self.horizontalInset)
+        container.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            container.widthAnchor.constraint(equalToConstant: Self.menuWidth)
+        ])
+
+        container.addArrangedSubview(sectionTitle("Cursor usage"))
+        for line in display.usageDetailLines {
+            container.addArrangedSubview(detailLine(line.label, line.value))
+        }
+        container.addArrangedSubview(detailLine("Plan", display.planText))
+        container.addArrangedSubview(detailLine("Status", display.statusText))
+        if let errorText = display.errorText,
+           !display.usageDetailLines.contains(where: { $0.value == errorText }) {
+            container.addArrangedSubview(detailLine("Details", errorText))
+        }
+        container.addArrangedSubview(separator())
+        container.addArrangedSubview(sectionTitle("Last check"))
+        container.addArrangedSubview(detailLine(display.checkedAtText, display.checkedAtRelativeText))
+        return container
+    }
+
+    private func sectionTitle(_ text: String) -> NSTextField {
+        label(text, font: .systemFont(ofSize: 13, weight: .bold), color: .secondaryLabelColor)
+    }
+
+    private func detailLine(_ labelText: String, _ valueText: String) -> NSView {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.alignment = .firstBaseline
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
         let name = label(labelText, font: .systemFont(ofSize: 13, weight: .regular), color: .secondaryLabelColor)
         let value = label(valueText, font: .systemFont(ofSize: 13, weight: .medium), color: .labelColor)
         value.lineBreakMode = .byTruncatingMiddle

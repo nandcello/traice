@@ -168,6 +168,129 @@ final class CodexUsageFormattingTests: XCTestCase {
         XCTAssertEqual(state.title, "5h 12% W 19%")
     }
 
+    func testCursorDisplayUsesCurrentPeriodPlanUsagePools() throws {
+        let data = """
+        {
+          "planUsage": {
+            "totalSpend": 4925,
+            "includedSpend": 4925,
+            "limit": 10000,
+            "remaining": 5075,
+            "autoPercentUsed": 12.4,
+            "apiPercentUsed": 46.4,
+            "totalPercentUsed": 48.0
+          }
+        }
+        """.data(using: .utf8)!
+        let currentPeriodUsage = try JSONDecoder().decode(CursorCurrentPeriodUsageResponse.self, from: data)
+        let snapshot = CursorUsageSnapshot(
+            currentPeriodUsage: currentPeriodUsage,
+            legacyUsage: nil,
+            stripe: CursorStripeResponse(
+                membershipType: "pro_plus",
+                subscriptionStatus: "active",
+                planName: nil
+            ),
+            error: nil,
+            checkedAt: Date(timeIntervalSince1970: 1_000_000)
+        )
+
+        let display = CursorUsageDisplay(
+            snapshot: snapshot,
+            timezone: TimeZone(secondsFromGMT: 0)!,
+            now: snapshot.checkedAt
+        )
+
+        XCTAssertEqual(display.title, "A+C 12% API 46%")
+        XCTAssertEqual(display.summary, "Auto + Composer 12% | API 46%")
+        XCTAssertEqual(display.detailUsageText, "Auto + Composer 12% | API 46%, total 48%, included spend $49.25 / $100")
+        XCTAssertEqual(
+            display.usageDetailLines,
+            [
+                CursorUsageDetailLine(label: "Auto + Composer", value: "12%"),
+                CursorUsageDetailLine(label: "API", value: "46%"),
+                CursorUsageDetailLine(label: "Total", value: "48%"),
+                CursorUsageDetailLine(label: "Included spend", value: "$49.25 / $100")
+            ]
+        )
+        XCTAssertEqual(display.planText, "pro_plus")
+        XCTAssertEqual(display.statusText, "active")
+    }
+
+    func testCursorDisplayFallsBackWhenCurrentPeriodPoolSplitIsMissing() throws {
+        let data = """
+        {
+          "planUsage": {
+            "totalSpend": 4925,
+            "limit": 10000,
+            "totalPercentUsed": 48.0
+          }
+        }
+        """.data(using: .utf8)!
+        let currentPeriodUsage = try JSONDecoder().decode(CursorCurrentPeriodUsageResponse.self, from: data)
+        let snapshot = CursorUsageSnapshot(
+            currentPeriodUsage: currentPeriodUsage,
+            legacyUsage: nil,
+            stripe: nil,
+            error: nil,
+            checkedAt: Date(timeIntervalSince1970: 1_000_000)
+        )
+
+        let display = CursorUsageDisplay(
+            snapshot: snapshot,
+            timezone: TimeZone(secondsFromGMT: 0)!,
+            now: snapshot.checkedAt
+        )
+
+        XCTAssertEqual(display.title, "Cursor 48%")
+        XCTAssertEqual(display.summary, "48%")
+        XCTAssertEqual(display.detailUsageText, "48%, included spend $49.25 / $100")
+        XCTAssertEqual(
+            display.usageDetailLines,
+            [
+                CursorUsageDetailLine(label: "Total", value: "48%"),
+                CursorUsageDetailLine(label: "Pool split", value: "unavailable"),
+                CursorUsageDetailLine(label: "Included spend", value: "$49.25 / $100")
+            ]
+        )
+    }
+
+    func testCursorDisplayFallsBackToLegacyGpt4Usage() throws {
+        let data = """
+        {
+          "gpt-4": {
+            "numRequests": 25,
+            "numRequestsTotal": 100,
+            "maxRequestUsage": 500
+          }
+        }
+        """.data(using: .utf8)!
+        let legacyUsage = try JSONDecoder().decode(CursorLegacyUsageResponse.self, from: data)
+        let snapshot = CursorUsageSnapshot(
+            currentPeriodUsage: nil,
+            legacyUsage: legacyUsage,
+            stripe: nil,
+            error: nil,
+            checkedAt: Date(timeIntervalSince1970: 1_000_000)
+        )
+
+        let display = CursorUsageDisplay(
+            snapshot: snapshot,
+            timezone: TimeZone(secondsFromGMT: 0)!,
+            now: snapshot.checkedAt
+        )
+
+        XCTAssertEqual(display.title, "Cursor 25%")
+        XCTAssertEqual(display.summary, "25 / 100")
+        XCTAssertEqual(display.detailUsageText, "25 / 100 requests (25%)")
+        XCTAssertEqual(
+            display.usageDetailLines,
+            [
+                CursorUsageDetailLine(label: "Requests", value: "25 / 100 requests (25%)")
+            ]
+        )
+    }
+
     func testSnapshotStoreRoundTripsSnapshot() throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)

@@ -12,6 +12,15 @@ enum CodexUsageConfig {
     static let snapshotCachePath = "~/Library/Application Support/Traice/usage-snapshot.json"
 }
 
+enum CursorUsageConfig {
+    static let bundleIdentifier = "com.todesktop.230313mzl4w4u92"
+    static let currentPeriodUsageEndpoint = URL(string: "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage")!
+    static let usageEndpoint = URL(string: "https://cursor.com/api/usage")!
+    static let stripeEndpoint = URL(string: "https://cursor.com/api/auth/stripe")!
+    static let dashboardURL = URL(string: "https://cursor.com/dashboard")!
+    static let defaultAuthDatabasePath = "~/Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+}
+
 struct AuthFile: Codable {
     let tokens: Tokens
 }
@@ -229,6 +238,264 @@ struct CodexUsageDisplay {
     }
 }
 
+struct CursorCurrentPeriodUsageResponse: Codable {
+    let planUsage: CursorPlanUsage?
+    let totalPercentUsed: Double?
+    let percentUsed: Double?
+    let hardLimit: Double?
+    let currentSpend: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case planUsage
+        case totalPercentUsed
+        case percentUsed
+        case hardLimit
+        case currentSpend
+    }
+}
+
+struct CursorPlanUsage: Codable {
+    let used: Double?
+    let limit: Double?
+    let percentUsed: Double?
+    let totalPercentUsed: Double?
+    let autoPercentUsed: Double?
+    let apiPercentUsed: Double?
+    let totalSpend: Double?
+    let includedSpend: Double?
+    let remaining: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case used
+        case limit
+        case percentUsed
+        case totalPercentUsed
+        case autoPercentUsed
+        case apiPercentUsed
+        case totalSpend
+        case includedSpend
+        case remaining
+    }
+}
+
+struct CursorLegacyUsageResponse: Codable {
+    let gpt4: CursorLegacyUsageBucket?
+    let usage: CursorLegacyUsageBucket?
+    let premium: CursorLegacyUsageBucket?
+
+    enum CodingKeys: String, CodingKey {
+        case gpt4 = "gpt-4"
+        case usage
+        case premium
+    }
+}
+
+struct CursorLegacyUsageBucket: Codable {
+    let numRequests: Int?
+    let numRequestsTotal: Int?
+    let maxRequestUsage: Int?
+    let requests: Int?
+    let limit: Int?
+}
+
+struct CursorStripeResponse: Codable {
+    let membershipType: String?
+    let subscriptionStatus: String?
+    let planName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case membershipType
+        case subscriptionStatus
+        case planName
+    }
+}
+
+struct CursorUsageSnapshot: Codable {
+    let currentPeriodUsage: CursorCurrentPeriodUsageResponse?
+    let legacyUsage: CursorLegacyUsageResponse?
+    let stripe: CursorStripeResponse?
+    let error: String?
+    let checkedAt: Date
+}
+
+struct CursorUsageDetailLine: Equatable {
+    let label: String
+    let value: String
+}
+
+struct CursorUsageDisplay {
+    let title: String
+    let summary: String
+    let detailUsageText: String
+    let usageDetailLines: [CursorUsageDetailLine]
+    let value: Double
+    let planText: String
+    let statusText: String
+    let checkedAtText: String
+    let checkedAtRelativeText: String
+    let errorText: String?
+
+    init(
+        snapshot: CursorUsageSnapshot,
+        timezone: TimeZone = CodexUsageFormatting.configuredTimeZone(),
+        now: Date? = nil
+    ) {
+        let displayNow = now ?? snapshot.checkedAt
+        checkedAtText = CodexUsageFormatting.formatDate(snapshot.checkedAt, timezone: timezone)
+        checkedAtRelativeText = CodexUsageFormatting.formatRelative(snapshot.checkedAt, now: displayNow)
+        errorText = snapshot.error
+        planText = snapshot.stripe?.planName
+            ?? snapshot.stripe?.membershipType
+            ?? "Usage"
+        statusText = snapshot.stripe?.subscriptionStatus ?? "unknown"
+
+        let currentPeriodUsage = snapshot.currentPeriodUsage
+        let planUsage = currentPeriodUsage?.planUsage
+        let totalPercent = Self.totalPercent(planUsage: planUsage, currentPeriodUsage: currentPeriodUsage)
+        let includedSpendText = Self.includedSpendText(planUsage: planUsage, currentPeriodUsage: currentPeriodUsage)
+
+        if let planUsage,
+           planUsage.autoPercentUsed != nil || planUsage.apiPercentUsed != nil {
+            let autoPercentText = CodexUsageFormatting.formatPercent(planUsage.autoPercentUsed)
+            let apiPercentText = CodexUsageFormatting.formatPercent(planUsage.apiPercentUsed)
+            let totalPercentText = CodexUsageFormatting.formatPercent(totalPercent)
+            let valuePercent = totalPercent
+                ?? [planUsage.autoPercentUsed, planUsage.apiPercentUsed].compactMap { $0 }.max()
+
+            value = CodexUsageFormatting.clampedUnitValue(valuePercent)
+            title = "A+C \(autoPercentText) API \(apiPercentText)"
+            summary = "Auto + Composer \(autoPercentText) | API \(apiPercentText)"
+
+            var detailParts = [summary]
+            if totalPercent != nil {
+                detailParts.append("total \(totalPercentText)")
+            }
+            if let includedSpendText {
+                detailParts.append("included spend \(includedSpendText)")
+            }
+            detailUsageText = detailParts.joined(separator: ", ")
+
+            var usageDetailLines = [
+                CursorUsageDetailLine(label: "Auto + Composer", value: autoPercentText),
+                CursorUsageDetailLine(label: "API", value: apiPercentText)
+            ]
+            if totalPercent != nil {
+                usageDetailLines.append(CursorUsageDetailLine(label: "Total", value: totalPercentText))
+            }
+            if let includedSpendText {
+                usageDetailLines.append(CursorUsageDetailLine(label: "Included spend", value: includedSpendText))
+            }
+            self.usageDetailLines = usageDetailLines
+        } else if let percent = totalPercent {
+            value = CodexUsageFormatting.clampedUnitValue(percent)
+            title = "Cursor \(CodexUsageFormatting.formatPercent(percent))"
+            summary = CodexUsageFormatting.formatPercent(percent)
+
+            var detailParts = [summary]
+            if let includedSpendText {
+                detailParts.append("included spend \(includedSpendText)")
+            }
+            detailUsageText = detailParts.joined(separator: ", ")
+
+            var usageDetailLines = [
+                CursorUsageDetailLine(label: "Total", value: summary),
+                CursorUsageDetailLine(label: "Pool split", value: "unavailable")
+            ]
+            if let includedSpendText {
+                usageDetailLines.append(CursorUsageDetailLine(label: "Included spend", value: includedSpendText))
+            }
+            self.usageDetailLines = usageDetailLines
+        } else if let legacy = snapshot.legacyUsage?.gpt4 ?? snapshot.legacyUsage?.usage ?? snapshot.legacyUsage?.premium,
+                  let used = legacy.numRequests ?? legacy.requests,
+                  let limit = legacy.numRequestsTotal ?? legacy.maxRequestUsage ?? legacy.limit,
+                  limit > 0 {
+            let percent = Double(used) / Double(limit) * 100
+            value = CodexUsageFormatting.clampedUnitValue(percent)
+            title = "Cursor \(CodexUsageFormatting.formatPercent(percent))"
+            summary = "\(used) / \(limit)"
+            detailUsageText = "\(summary) requests (\(CodexUsageFormatting.formatPercent(percent)))"
+            usageDetailLines = [
+                CursorUsageDetailLine(label: "Requests", value: detailUsageText)
+            ]
+        } else if let error = snapshot.error {
+            value = 0
+            title = "Cursor ?"
+            summary = "unavailable"
+            detailUsageText = error
+            usageDetailLines = [
+                CursorUsageDetailLine(label: "Details", value: error)
+            ]
+        } else {
+            value = 0
+            title = "Cursor --"
+            summary = "unknown"
+            detailUsageText = "No usage returned"
+            usageDetailLines = [
+                CursorUsageDetailLine(label: "Usage", value: "No usage returned")
+            ]
+        }
+    }
+
+    private static func totalPercent(
+        planUsage: CursorPlanUsage?,
+        currentPeriodUsage: CursorCurrentPeriodUsageResponse?
+    ) -> Double? {
+        if let percent = planUsage?.totalPercentUsed
+            ?? planUsage?.percentUsed
+            ?? currentPeriodUsage?.totalPercentUsed
+            ?? currentPeriodUsage?.percentUsed {
+            return percent
+        }
+
+        guard let usedCents = usedCents(planUsage: planUsage, currentPeriodUsage: currentPeriodUsage),
+              let limitCents = limitCents(planUsage: planUsage, currentPeriodUsage: currentPeriodUsage),
+              limitCents > 0 else {
+            return nil
+        }
+        return usedCents / limitCents * 100
+    }
+
+    private static func includedSpendText(
+        planUsage: CursorPlanUsage?,
+        currentPeriodUsage: CursorCurrentPeriodUsageResponse?
+    ) -> String? {
+        guard let usedCents = usedCents(planUsage: planUsage, currentPeriodUsage: currentPeriodUsage),
+              let limitCents = limitCents(planUsage: planUsage, currentPeriodUsage: currentPeriodUsage),
+              limitCents > 0 else {
+            return nil
+        }
+        return "\(formatCurrencyFromCents(usedCents)) / \(formatCurrencyFromCents(limitCents))"
+    }
+
+    private static func usedCents(
+        planUsage: CursorPlanUsage?,
+        currentPeriodUsage: CursorCurrentPeriodUsageResponse?
+    ) -> Double? {
+        planUsage?.includedSpend
+            ?? planUsage?.used
+            ?? planUsage?.totalSpend
+            ?? currentPeriodUsage?.currentSpend
+    }
+
+    private static func limitCents(
+        planUsage: CursorPlanUsage?,
+        currentPeriodUsage: CursorCurrentPeriodUsageResponse?
+    ) -> Double? {
+        planUsage?.limit ?? currentPeriodUsage?.hardLimit
+    }
+
+    private static func formatCurrencyFromCents(_ cents: Double) -> String {
+        formatCurrency(cents / 100)
+    }
+
+    private static func formatCurrency(_ value: Double) -> String {
+        if value >= 100 {
+            return "$\(Int(value.rounded()))"
+        }
+        return String(format: "$%.2f", value)
+    }
+}
+
 enum CodexUsageMenuBarPresentation {
     static let placeholderTitle = "5h -- W --"
     static let loadingTitle = "5h ... W ..."
@@ -268,6 +535,20 @@ struct CodexUsageMenuBarState {
     mutating func renderError() {
         guard !hasRenderedSnapshot else { return }
         title = CodexUsageMenuBarPresentation.errorTitle
+    }
+}
+
+enum CursorUsageMenuBarPresentation {
+    static let placeholderTitle = "Cursor --"
+    static let loadingTitle = "Cursor ..."
+    static let errorTitle = "Cursor ?"
+
+    static func title(for display: CursorUsageDisplay) -> String {
+        display.title
+    }
+
+    static func toolTip(for display: CursorUsageDisplay) -> String {
+        "Cursor usage: \(display.detailUsageText)"
     }
 }
 
