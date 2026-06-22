@@ -45,6 +45,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             button.toolTip = "Traice"
         }
 
+        applyExpansionPolicy()
         setLoadingMenu()
         refresh(showLoading: true, force: true)
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -53,9 +54,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.activeUsageProvider = ActiveUsageProvider.current()
-                self?.renderCurrentTitle()
-                self?.rebuildMenu()
+                self?.updateActiveUsageProvider()
             }
         }
 
@@ -132,6 +131,27 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         rebuildMenu()
     }
 
+    private func updateActiveUsageProvider() {
+        activeUsageProvider = ActiveUsageProvider.current()
+        applyExpansionPolicy()
+        renderCurrentTitle()
+        rebuildMenu()
+    }
+
+    private func applyExpansionPolicy() {
+        switch activeUsageProvider {
+        case .codex:
+            isCodexHeaderExpanded = true
+            isCursorHeaderExpanded = false
+        case .cursor:
+            isCodexHeaderExpanded = false
+            isCursorHeaderExpanded = true
+        case nil:
+            isCodexHeaderExpanded = false
+            isCursorHeaderExpanded = false
+        }
+    }
+
     private func renderError(_ error: Error) {
         menuBarState.renderError()
         renderCurrentTitle(error: error.localizedDescription)
@@ -151,7 +171,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         let cursorDisplay = lastCursorSnapshot.map { CursorUsageDisplay(snapshot: $0, now: Date()) }
 
         switch activeUsageProvider {
-        case .cursor:
+        case .cursor?:
             if let cursorDisplay {
                 statusItem.button?.title = CursorUsageMenuBarPresentation.title(for: cursorDisplay)
                 statusItem.button?.toolTip = CursorUsageMenuBarPresentation.toolTip(for: cursorDisplay)
@@ -159,7 +179,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
                 statusItem.button?.title = CursorUsageMenuBarPresentation.placeholderTitle
                 statusItem.button?.toolTip = error ?? "Cursor usage unavailable"
             }
-        case .codex:
+        case .codex?, nil:
             statusItem.button?.title = codexDisplay.map(CodexUsageMenuBarPresentation.title) ?? menuBarState.title
             statusItem.button?.toolTip = codexDisplay.map(CodexUsageMenuBarPresentation.toolTip) ?? error ?? "Codex usage unavailable"
         }
@@ -190,11 +210,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         switch activeUsageProvider {
-        case .cursor:
+        case .cursor?:
             addCursorHeader()
             menu.addSeparator()
             addCodexHeader()
-        case .codex:
+        case .codex?, nil:
             addCodexHeader()
             menu.addSeparator()
             addCursorHeader()
@@ -228,9 +248,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openUsageSettings() {
         switch activeUsageProvider {
-        case .cursor:
+        case .cursor?:
             NSWorkspace.shared.open(CursorUsageConfig.dashboardURL)
-        case .codex:
+        case .codex?, nil:
             NSWorkspace.shared.open(CodexUsageConfig.usageSettingsURL)
         }
     }
@@ -241,27 +261,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
-    }
-}
-
-enum ActiveUsageProvider {
-    case codex
-    case cursor
-
-    static let codexBundleIdentifier = "com.openai.codex"
-
-    static func current(
-        runningApplication: NSRunningApplication? = NSWorkspace.shared.frontmostApplication
-    ) -> ActiveUsageProvider {
-        guard let bundleIdentifier = runningApplication?.bundleIdentifier else {
-            return .codex
-        }
-
-        if bundleIdentifier == CursorUsageConfig.bundleIdentifier {
-            return .cursor
-        }
-
-        return .codex
     }
 }
 
@@ -280,6 +279,30 @@ extension AppDelegate: NSMenuDelegate {
     }
 }
 #endif
+
+enum ActiveUsageProvider {
+    case codex
+    case cursor
+
+    static let codexBundleIdentifier = "com.openai.codex"
+
+    static func current(
+        runningApplication: NSRunningApplication? = NSWorkspace.shared.frontmostApplication
+    ) -> ActiveUsageProvider? {
+        current(bundleIdentifier: runningApplication?.bundleIdentifier)
+    }
+
+    static func current(bundleIdentifier: String?) -> ActiveUsageProvider? {
+        switch bundleIdentifier {
+        case codexBundleIdentifier:
+            return .codex
+        case CursorUsageConfig.bundleIdentifier:
+            return .cursor
+        default:
+            return nil
+        }
+    }
+}
 
 private extension NSMenu {
     func addView(_ view: NSView) {

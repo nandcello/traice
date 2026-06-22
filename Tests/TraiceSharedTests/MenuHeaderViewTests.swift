@@ -3,6 +3,13 @@ import XCTest
 
 @MainActor
 final class MenuHeaderViewTests: XCTestCase {
+    func testActiveUsageProviderMatchesOnlyRelevantApps() {
+        XCTAssertEqual(ActiveUsageProvider.current(bundleIdentifier: ActiveUsageProvider.codexBundleIdentifier), .codex)
+        XCTAssertEqual(ActiveUsageProvider.current(bundleIdentifier: CursorUsageConfig.bundleIdentifier), .cursor)
+        XCTAssertNil(ActiveUsageProvider.current(bundleIdentifier: "com.apple.Safari"))
+        XCTAssertNil(ActiveUsageProvider.current(bundleIdentifier: nil))
+    }
+
     func testChevronRotatesFromRightToDownBetweenCollapsedAndExpandedStates() throws {
         let collapsed = MenuHeaderView(display: sampleDisplay(), expanded: false) { _ in }
         collapsed.layoutSubtreeIfNeeded()
