@@ -70,6 +70,19 @@ final class CodexUsageFormattingTests: XCTestCase {
         XCTAssertNotNil(CodexUsageFormatting.parseISODate("2026-06-19T03:04:05.123Z"))
         XCTAssertNil(CodexUsageFormatting.parseISODate(nil))
         XCTAssertNil(CodexUsageFormatting.parseISODate("not-a-date"))
+
+        XCTAssertEqual(
+            CodexUsageFormatting.parseFlexibleDate("2026-06-19T03:04:05Z"),
+            CodexUsageFormatting.parseISODate("2026-06-19T03:04:05Z")
+        )
+        XCTAssertEqual(
+            CodexUsageFormatting.parseFlexibleDate("1700004600"),
+            Date(timeIntervalSince1970: 1_700_004_600)
+        )
+        XCTAssertEqual(
+            CodexUsageFormatting.parseFlexibleDate("1700004600000"),
+            Date(timeIntervalSince1970: 1_700_004_600)
+        )
     }
 
     func testDisplayBuildsCreditSummaries() {
@@ -169,8 +182,11 @@ final class CodexUsageFormattingTests: XCTestCase {
     }
 
     func testCursorDisplayUsesCurrentPeriodPlanUsagePools() throws {
+        let checkedAt = Date(timeIntervalSince1970: 1_700_000_000)
         let data = """
         {
+          "billingCycleStart": "1700000000000",
+          "billingCycleEnd": "1700004600000",
           "planUsage": {
             "totalSpend": 4925,
             "includedSpend": 4925,
@@ -192,7 +208,7 @@ final class CodexUsageFormattingTests: XCTestCase {
                 planName: nil
             ),
             error: nil,
-            checkedAt: Date(timeIntervalSince1970: 1_000_000)
+            checkedAt: checkedAt
         )
 
         let display = CursorUsageDisplay(
@@ -204,6 +220,9 @@ final class CodexUsageFormattingTests: XCTestCase {
         XCTAssertEqual(display.title, "A+C 12% API 46%")
         XCTAssertEqual(display.summary, "Auto + Composer 12% | API 46%")
         XCTAssertEqual(display.detailUsageText, "Auto + Composer 12% | API 46%, total 48%, included spend $49.25 / $100")
+        XCTAssertEqual(display.resetAbsoluteText, "Nov 14, 23:30")
+        XCTAssertEqual(display.resetRelativeText, "in 1h 16m")
+        XCTAssertEqual(display.resetText, "Nov 14, 23:30 (in 1h 16m)")
         XCTAssertEqual(
             display.usageDetailLines,
             [
@@ -245,6 +264,7 @@ final class CodexUsageFormattingTests: XCTestCase {
         XCTAssertEqual(display.title, "Cursor 48%")
         XCTAssertEqual(display.summary, "48%")
         XCTAssertEqual(display.detailUsageText, "48%, included spend $49.25 / $100")
+        XCTAssertEqual(display.resetText, "unknown")
         XCTAssertEqual(
             display.usageDetailLines,
             [
@@ -262,7 +282,8 @@ final class CodexUsageFormattingTests: XCTestCase {
             "numRequests": 25,
             "numRequestsTotal": 100,
             "maxRequestUsage": 500
-          }
+          },
+          "startOfMonth": "1970-01-12T13:46:40Z"
         }
         """.data(using: .utf8)!
         let legacyUsage = try JSONDecoder().decode(CursorLegacyUsageResponse.self, from: data)
@@ -283,6 +304,9 @@ final class CodexUsageFormattingTests: XCTestCase {
         XCTAssertEqual(display.title, "Cursor 25%")
         XCTAssertEqual(display.summary, "25 / 100")
         XCTAssertEqual(display.detailUsageText, "25 / 100 requests (25%)")
+        XCTAssertEqual(display.resetAbsoluteText, "Feb 12, 13:46")
+        XCTAssertEqual(display.resetRelativeText, "in 31d 0h")
+        XCTAssertEqual(display.resetText, "Feb 12, 13:46 (in 31d 0h)")
         XCTAssertEqual(
             display.usageDetailLines,
             [

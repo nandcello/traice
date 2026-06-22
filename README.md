@@ -22,7 +22,7 @@ Menu bar
 
 - Track Codex 5-hour and weekly usage from the macOS menu bar and Notification Center widget.
 - Track Cursor usage from the menu bar and widget when Cursor auth is available locally.
-- See when the 5-hour and weekly usage windows reset, including relative times in the widget and exact timestamps in the menu bar dropdown.
+- See when the Codex 5-hour/weekly windows and Cursor usage period reset, including relative times in the widget and exact timestamps in the menu bar dropdown.
 - View available Codex reset credits and when each credit expires.
 - Refresh menu bar usage about every 30 seconds and share fresh snapshots with the widget when macOS allows it to reload.
 

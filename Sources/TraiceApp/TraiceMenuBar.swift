@@ -114,7 +114,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             display.weeklyResetText,
             display.resetCreditCount.map(String.init) ?? "unknown",
             cursorDisplay?.title ?? "cursor-none",
-            cursorDisplay?.detailUsageText ?? "cursor-none"
+            cursorDisplay?.detailUsageText ?? "cursor-none",
+            cursorDisplay?.resetText ?? "cursor-none"
         ].joined(separator: "|")
         let shouldReloadWidgets = displaySignature != lastDisplaySignature
 
@@ -842,7 +843,7 @@ final class CursorMenuHeaderView: NSView {
         textStack.translatesAutoresizingMaskIntoConstraints = false
         textStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         textStack.addArrangedSubview(label("Cursor", font: .systemFont(ofSize: 16, weight: .semibold), color: .labelColor))
-        textStack.addArrangedSubview(label(display.summary, font: .systemFont(ofSize: 13, weight: .semibold), color: .secondaryLabelColor))
+        textStack.addArrangedSubview(label(menuSubtitle, font: .systemFont(ofSize: 13, weight: .semibold), color: .secondaryLabelColor))
 
         let chevronHost = NSView()
         chevronHost.translatesAutoresizingMaskIntoConstraints = false
@@ -945,6 +946,13 @@ final class CursorMenuHeaderView: NSView {
         return ceil(details.fittingSize.height)
     }
 
+    private var menuSubtitle: String {
+        guard display.resetRelativeText != "unknown" else {
+            return display.summary
+        }
+        return "\(display.summary)  Reset \(display.resetRelativeText)"
+    }
+
     private func detailsView() -> NSView {
         let container = NSStackView()
         container.orientation = .vertical
@@ -960,6 +968,7 @@ final class CursorMenuHeaderView: NSView {
         for line in display.usageDetailLines {
             container.addArrangedSubview(detailLine(line.label, line.value))
         }
+        container.addArrangedSubview(detailLine("Reset", display.resetText))
         container.addArrangedSubview(detailLine("Plan", display.planText))
         container.addArrangedSubview(detailLine("Status", display.statusText))
         if let errorText = display.errorText,

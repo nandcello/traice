@@ -129,7 +129,7 @@ struct TraiceWidgetView: View {
             VStack(alignment: .leading, spacing: 6) {
                 ResetLine(label: "5h reset", value: display.primaryResetRelativeText)
                 ResetLine(label: "Weekly reset", value: display.weeklyResetRelativeText)
-                ResetLine(label: "Cursor", value: cursor?.summary ?? "unavailable")
+                ResetLine(label: "Cursor reset", value: cursor?.resetRelativeText ?? "unavailable")
             }
             Spacer(minLength: 0)
             footer(display.checkedAtText)
@@ -156,6 +156,7 @@ struct TraiceWidgetView: View {
                     ForEach(cursor.usageDetailLines.prefix(3), id: \.label) { line in
                         ResetLine(label: line.label, value: line.value)
                     }
+                    ResetLine(label: "Reset", value: cursor.resetText)
                     ResetLine(label: "Plan", value: cursor.planText)
                 } else {
                     Text("No Cursor snapshot cached")

@@ -80,6 +80,20 @@ enum CodexUsageFormatting {
         return standard.date(from: value)
     }
 
+    static func parseFlexibleDate(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if let isoDate = parseISODate(trimmed) {
+            return isoDate
+        }
+
+        guard let timestamp = Double(trimmed) else { return nil }
+        let seconds = abs(timestamp) >= 1_000_000_000_000 ? timestamp / 1_000 : timestamp
+        return Date(timeIntervalSince1970: seconds)
+    }
+
     static func formatOptionalDate(_ date: Date?, timezone: TimeZone) -> String {
         guard let date else { return "unknown" }
         return formatDate(date, timezone: timezone)

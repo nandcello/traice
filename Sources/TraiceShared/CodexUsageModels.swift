@@ -298,12 +298,68 @@ struct CodexUsageDisplay {
     }
 }
 
+struct CursorUsageTimestamp: Codable {
+    let rawValue: String
+
+    init(rawValue: String) {
+        self.rawValue = rawValue
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let string = try? container.decode(String.self) {
+            rawValue = string
+        } else if let int = try? container.decode(Int64.self) {
+            rawValue = String(int)
+        } else if let double = try? container.decode(Double.self) {
+            rawValue = String(double)
+        } else {
+            throw DecodingError.typeMismatch(
+                String.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected a date string or numeric timestamp."
+                )
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    var date: Date? {
+        CodexUsageFormatting.parseFlexibleDate(rawValue)
+    }
+}
+
 struct CursorCurrentPeriodUsageResponse: Codable {
     let planUsage: CursorPlanUsage?
     let totalPercentUsed: Double?
     let percentUsed: Double?
     let hardLimit: Double?
     let currentSpend: Double?
+    let billingCycleStart: CursorUsageTimestamp?
+    let billingCycleEnd: CursorUsageTimestamp?
+
+    init(
+        planUsage: CursorPlanUsage?,
+        totalPercentUsed: Double?,
+        percentUsed: Double?,
+        hardLimit: Double?,
+        currentSpend: Double?,
+        billingCycleStart: CursorUsageTimestamp? = nil,
+        billingCycleEnd: CursorUsageTimestamp? = nil
+    ) {
+        self.planUsage = planUsage
+        self.totalPercentUsed = totalPercentUsed
+        self.percentUsed = percentUsed
+        self.hardLimit = hardLimit
+        self.currentSpend = currentSpend
+        self.billingCycleStart = billingCycleStart
+        self.billingCycleEnd = billingCycleEnd
+    }
 
     enum CodingKeys: String, CodingKey {
         case planUsage
@@ -311,6 +367,8 @@ struct CursorCurrentPeriodUsageResponse: Codable {
         case percentUsed
         case hardLimit
         case currentSpend
+        case billingCycleStart
+        case billingCycleEnd
     }
 }
 
@@ -342,11 +400,13 @@ struct CursorLegacyUsageResponse: Codable {
     let gpt4: CursorLegacyUsageBucket?
     let usage: CursorLegacyUsageBucket?
     let premium: CursorLegacyUsageBucket?
+    let startOfMonth: CursorUsageTimestamp?
 
     enum CodingKeys: String, CodingKey {
         case gpt4 = "gpt-4"
         case usage
         case premium
+        case startOfMonth
     }
 }
 
@@ -391,6 +451,9 @@ struct CursorUsageDisplay {
     let value: Double
     let planText: String
     let statusText: String
+    let resetAbsoluteText: String
+    let resetRelativeText: String
+    let resetText: String
     let checkedAtText: String
     let checkedAtRelativeText: String
     let errorText: String?
@@ -411,8 +474,14 @@ struct CursorUsageDisplay {
 
         let currentPeriodUsage = snapshot.currentPeriodUsage
         let planUsage = currentPeriodUsage?.planUsage
+        let resetDate = Self.resetDate(currentPeriodUsage: currentPeriodUsage, legacyUsage: snapshot.legacyUsage)
         let totalPercent = Self.totalPercent(planUsage: planUsage, currentPeriodUsage: currentPeriodUsage)
         let includedSpendText = Self.includedSpendText(planUsage: planUsage, currentPeriodUsage: currentPeriodUsage)
+        let formattedResetAbsoluteText = CodexUsageFormatting.formatOptionalDate(resetDate, timezone: timezone)
+        let formattedResetRelativeText = CodexUsageFormatting.formatOptionalRelative(resetDate, now: displayNow)
+        resetAbsoluteText = formattedResetAbsoluteText
+        resetRelativeText = formattedResetRelativeText
+        resetText = resetDate == nil ? "unknown" : "\(formattedResetAbsoluteText) (\(formattedResetRelativeText))"
 
         if let planUsage,
            planUsage.autoPercentUsed != nil || planUsage.apiPercentUsed != nil {
@@ -494,6 +563,23 @@ struct CursorUsageDisplay {
                 CursorUsageDetailLine(label: "Usage", value: "No usage returned")
             ]
         }
+    }
+
+    private static func resetDate(
+        currentPeriodUsage: CursorCurrentPeriodUsageResponse?,
+        legacyUsage: CursorLegacyUsageResponse?
+    ) -> Date? {
+        if let billingCycleEnd = currentPeriodUsage?.billingCycleEnd?.date {
+            return billingCycleEnd
+        }
+
+        guard let startOfMonth = legacyUsage?.startOfMonth?.date else {
+            return nil
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar.date(byAdding: .month, value: 1, to: startOfMonth)
     }
 
     private static func totalPercent(
@@ -608,7 +694,7 @@ enum CursorUsageMenuBarPresentation {
     }
 
     static func toolTip(for display: CursorUsageDisplay) -> String {
-        "Cursor usage: \(display.detailUsageText)"
+        "Cursor usage: \(display.detailUsageText). Reset: \(display.resetText)"
     }
 }
 
