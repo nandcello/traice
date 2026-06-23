@@ -329,6 +329,18 @@ private extension NSMenu {
     }
 }
 
+private enum MenuHeaderColors {
+    static func summaryBackgroundColor(for appearance: NSAppearance) -> CGColor {
+        var color = NSColor.controlBackgroundColor.withAlphaComponent(0.72)
+        appearance.performAsCurrentDrawingAppearance {
+            color = NSColor.controlBackgroundColor
+                .withAlphaComponent(0.72)
+                .usingColorSpace(.deviceRGB) ?? color
+        }
+        return color.cgColor
+    }
+}
+
 final class MenuHeaderView: NSView {
     private static let menuWidth: CGFloat = 340
     private static let horizontalInset: CGFloat = 18
@@ -343,6 +355,7 @@ final class MenuHeaderView: NSView {
     private var rootHeightConstraint: NSLayoutConstraint?
     private var detailHeightConstraint: NSLayoutConstraint?
     private var animationTimer: Timer?
+    private weak var summaryButtonView: NSButton?
     private weak var detailClipView: NSView?
     private weak var chevronView: NSImageView?
     private weak var chevronHostView: NSView?
@@ -374,7 +387,13 @@ final class MenuHeaderView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        applyAppearance()
         applyChevronRotation()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyAppearance()
     }
 
     override func layout() {
@@ -427,7 +446,8 @@ final class MenuHeaderView: NSView {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.wantsLayer = true
         button.layer?.cornerRadius = 10
-        button.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.72).cgColor
+        summaryButtonView = button
+        applyAppearance()
 
         let content = NSStackView()
         content.orientation = .horizontal
@@ -500,6 +520,11 @@ final class MenuHeaderView: NSView {
         ])
 
         return button
+    }
+
+    private func applyAppearance() {
+        summaryButtonView?.layer?.backgroundColor = MenuHeaderColors.summaryBackgroundColor(for: effectiveAppearance)
+        summaryButtonView?.needsDisplay = true
     }
 
     @objc private func toggleExpanded() {
@@ -747,6 +772,7 @@ final class CursorMenuHeaderView: NSView {
     private var expanded: Bool
     private var rootHeightConstraint: NSLayoutConstraint?
     private var detailHeightConstraint: NSLayoutConstraint?
+    private weak var summaryButtonView: NSButton?
     private weak var detailClipView: NSView?
     private weak var chevronView: NSImageView?
     private weak var chevronHostView: NSView?
@@ -767,6 +793,17 @@ final class CursorMenuHeaderView: NSView {
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: Self.menuWidth, height: rootHeightConstraint?.constant ?? Self.summaryHeight)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyAppearance()
+        applyChevronRotation()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyAppearance()
     }
 
     override func layout() {
@@ -818,7 +855,8 @@ final class CursorMenuHeaderView: NSView {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.wantsLayer = true
         button.layer?.cornerRadius = 10
-        button.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.72).cgColor
+        summaryButtonView = button
+        applyAppearance()
 
         let content = NSStackView()
         content.orientation = .horizontal
@@ -879,6 +917,11 @@ final class CursorMenuHeaderView: NSView {
         ])
 
         return button
+    }
+
+    private func applyAppearance() {
+        summaryButtonView?.layer?.backgroundColor = MenuHeaderColors.summaryBackgroundColor(for: effectiveAppearance)
+        summaryButtonView?.needsDisplay = true
     }
 
     @objc private func toggleExpanded() {

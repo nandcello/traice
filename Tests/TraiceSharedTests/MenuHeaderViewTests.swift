@@ -45,6 +45,69 @@ final class MenuHeaderViewTests: XCTestCase {
         XCTAssertEqual(header.intrinsicContentSize.height, collapsedHeight, accuracy: 0.001)
     }
 
+    func testSummaryButtonBackgroundTracksEffectiveAppearanceChanges() throws {
+        let app = NSApplication.shared
+        let originalAppearance = app.appearance
+        defer { app.appearance = originalAppearance }
+
+        let lightAppearance = try XCTUnwrap(NSAppearance(named: .aqua))
+        let darkAppearance = try XCTUnwrap(NSAppearance(named: .darkAqua))
+        app.appearance = lightAppearance
+
+        let codexHeader = MenuHeaderView(display: sampleDisplay(), expanded: false) { _ in }
+        let cursorHeader = CursorMenuHeaderView(display: sampleCursorDisplay(), expanded: false) { _ in }
+
+        try assertSummaryBackground(
+            in: codexHeader,
+            updatesFrom: lightAppearance,
+            to: darkAppearance
+        )
+        try assertSummaryBackground(
+            in: cursorHeader,
+            updatesFrom: lightAppearance,
+            to: darkAppearance
+        )
+    }
+
+    private func assertSummaryBackground(
+        in header: NSView,
+        updatesFrom lightAppearance: NSAppearance,
+        to darkAppearance: NSAppearance,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        header.appearance = lightAppearance
+        header.viewDidChangeEffectiveAppearance()
+        header.layoutSubtreeIfNeeded()
+        let button = try summaryButton(in: header, file: file, line: line)
+        XCTAssertEqual(
+            try backgroundColorComponents(in: button, file: file, line: line),
+            summaryBackgroundComponents(for: lightAppearance),
+            file: file,
+            line: line
+        )
+
+        header.appearance = darkAppearance
+        header.viewDidChangeEffectiveAppearance()
+        header.layoutSubtreeIfNeeded()
+        XCTAssertEqual(
+            try backgroundColorComponents(in: button, file: file, line: line),
+            summaryBackgroundComponents(for: darkAppearance),
+            file: file,
+            line: line
+        )
+
+        header.appearance = lightAppearance
+        header.viewDidChangeEffectiveAppearance()
+        header.layoutSubtreeIfNeeded()
+        XCTAssertEqual(
+            try backgroundColorComponents(in: button, file: file, line: line),
+            summaryBackgroundComponents(for: lightAppearance),
+            file: file,
+            line: line
+        )
+    }
+
     private func runAnimationLoop() {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.35))
     }
@@ -76,6 +139,37 @@ final class MenuHeaderViewTests: XCTestCase {
             return 0
         }
         return atan2(transform.b, transform.a) * 180 / CGFloat.pi
+    }
+
+    private func backgroundColorComponents(
+        in view: NSView,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> [CGFloat] {
+        let cgColor = try XCTUnwrap(view.layer?.backgroundColor, file: file, line: line)
+        let color = try XCTUnwrap(NSColor(cgColor: cgColor)?.usingColorSpace(.deviceRGB), file: file, line: line)
+        return [
+            color.redComponent,
+            color.greenComponent,
+            color.blueComponent,
+            color.alphaComponent
+        ].map { ($0 * 1_000).rounded() / 1_000 }
+    }
+
+    private func summaryBackgroundComponents(for appearance: NSAppearance) -> [CGFloat] {
+        var color: NSColor?
+        appearance.performAsCurrentDrawingAppearance {
+            color = NSColor.controlBackgroundColor
+                .withAlphaComponent(0.72)
+                .usingColorSpace(.deviceRGB)!
+        }
+        let resolvedColor = color!
+        return [
+            resolvedColor.redComponent,
+            resolvedColor.greenComponent,
+            resolvedColor.blueComponent,
+            resolvedColor.alphaComponent
+        ].map { ($0 * 1_000).rounded() / 1_000 }
     }
 
     private func chevron(
@@ -135,6 +229,34 @@ final class MenuHeaderViewTests: XCTestCase {
         )
 
         return CodexUsageDisplay(
+            snapshot: snapshot,
+            timezone: TimeZone(secondsFromGMT: 0)!,
+            now: checkedAt
+        )
+    }
+
+    private func sampleCursorDisplay() -> CursorUsageDisplay {
+        let checkedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let snapshot = CursorUsageSnapshot(
+            currentPeriodUsage: CursorCurrentPeriodUsageResponse(
+                planUsage: nil,
+                totalPercentUsed: 48,
+                percentUsed: nil,
+                hardLimit: nil,
+                currentSpend: nil,
+                billingCycleEnd: CursorUsageTimestamp(rawValue: "1700004600000")
+            ),
+            legacyUsage: nil,
+            stripe: CursorStripeResponse(
+                membershipType: "pro_plus",
+                subscriptionStatus: "active",
+                planName: nil
+            ),
+            error: nil,
+            checkedAt: checkedAt
+        )
+
+        return CursorUsageDisplay(
             snapshot: snapshot,
             timezone: TimeZone(secondsFromGMT: 0)!,
             now: checkedAt
