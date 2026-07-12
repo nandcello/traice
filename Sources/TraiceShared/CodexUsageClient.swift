@@ -110,13 +110,11 @@ final class CursorUsageClient {
 
             async let currentPeriodUsage: CursorCurrentPeriodUsageResponse? = optionalFetchCurrentPeriodUsage(auth: auth)
             async let legacyUsage: CursorLegacyUsageResponse? = optionalFetchLegacyUsage(auth: auth)
-            async let stripe: CursorStripeResponse? = optionalFetchStripe(auth: auth)
 
             // TODO: Preserve a fetch error when every optional Cursor usage request fails.
             return CursorUsageSnapshot(
                 currentPeriodUsage: await currentPeriodUsage,
                 legacyUsage: await legacyUsage,
-                stripe: await stripe,
                 error: nil,
                 checkedAt: checkedAt
             )
@@ -124,7 +122,6 @@ final class CursorUsageClient {
             return CursorUsageSnapshot(
                 currentPeriodUsage: nil,
                 legacyUsage: nil,
-                stripe: nil,
                 error: error.localizedDescription,
                 checkedAt: checkedAt
             )
@@ -157,15 +154,6 @@ final class CursorUsageClient {
 
         return try? await fetchJSON(
             url,
-            headers: [
-                "Cookie": "WorkosCursorSessionToken=\(auth.sessionToken)"
-            ]
-        )
-    }
-
-    private func optionalFetchStripe(auth: CursorAuth) async -> CursorStripeResponse? {
-        try? await fetchJSON(
-            CursorUsageConfig.stripeEndpoint,
             headers: [
                 "Cookie": "WorkosCursorSessionToken=\(auth.sessionToken)"
             ]

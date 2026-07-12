@@ -80,7 +80,6 @@ struct TraiceWidgetView: View {
     private var placeholderView: some View {
         VStack(alignment: .leading, spacing: 10) {
             header(title: "Traice", subtitle: "Usage")
-            UsageMeter(label: "5h", percentText: "--%", value: 0.38, tint: .cyan)
             UsageMeter(label: "Weekly", percentText: "--%", value: 0.22, tint: .orange)
             UsageMeter(label: "Cursor", percentText: "--%", value: 0.18, tint: .mint)
             Spacer(minLength: 0)
@@ -109,11 +108,10 @@ struct TraiceWidgetView: View {
     private func smallContent(_ display: CodexUsageDisplay, cursor: CursorUsageDisplay?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             header(title: "Traice", subtitle: "Usage")
-            UsageMeter(label: "5h", percentText: display.primaryPercent, value: display.primaryUsageValue, tint: .cyan)
             UsageMeter(label: "Weekly", percentText: display.weeklyPercent, value: display.weeklyUsageValue, tint: .orange)
             CursorMeter(display: cursor, compact: true)
             Spacer(minLength: 0)
-            ResetLine(label: "Next", value: display.primaryResetRelativeText)
+            ResetLine(label: "Next", value: display.weeklyResetRelativeText)
         }
         .padding()
     }
@@ -122,17 +120,14 @@ struct TraiceWidgetView: View {
         VStack(alignment: .leading, spacing: 12) {
             header(title: "Traice", subtitle: "Usage")
             HStack(spacing: 16) {
-                UsageMeter(label: "5h", percentText: display.primaryPercent, value: display.primaryUsageValue, tint: .cyan)
                 UsageMeter(label: "Weekly", percentText: display.weeklyPercent, value: display.weeklyUsageValue, tint: .orange)
                 CursorMeter(display: cursor, compact: true)
             }
             VStack(alignment: .leading, spacing: 6) {
-                ResetLine(label: "5h reset", value: display.primaryResetRelativeText)
                 ResetLine(label: "Weekly reset", value: display.weeklyResetRelativeText)
                 ResetLine(label: "Cursor reset", value: cursor?.resetRelativeText ?? "unavailable")
             }
             Spacer(minLength: 0)
-            footer(display.checkedAtText)
         }
         .padding()
     }
@@ -141,10 +136,7 @@ struct TraiceWidgetView: View {
         VStack(alignment: .leading, spacing: 12) {
             mediumHeader(display, cursor: cursor)
             VStack(alignment: .leading, spacing: 6) {
-                ResetLine(label: "5h reset", value: display.primaryResetText)
                 ResetLine(label: "Weekly reset", value: display.weeklyResetText)
-                ResetLine(label: "Allowed", value: display.allowedText)
-                ResetLine(label: "Limited", value: display.limitReachedText)
             }
 
             Divider()
@@ -157,7 +149,6 @@ struct TraiceWidgetView: View {
                         ResetLine(label: line.label, value: line.value)
                     }
                     ResetLine(label: "Reset", value: cursor.resetText)
-                    ResetLine(label: "Plan", value: cursor.planText)
                 } else {
                     Text("No Cursor snapshot cached")
                         .font(.caption2)
@@ -194,7 +185,6 @@ struct TraiceWidgetView: View {
                 }
             }
             Spacer(minLength: 0)
-            footer(display.checkedAtText)
         }
         .padding()
     }
@@ -209,7 +199,6 @@ struct TraiceWidgetView: View {
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 16) {
-                UsageMeter(label: "5h", percentText: display.primaryPercent, value: display.primaryUsageValue, tint: .cyan)
                 UsageMeter(label: "Weekly", percentText: display.weeklyPercent, value: display.weeklyUsageValue, tint: .orange)
                 CursorMeter(display: cursor, compact: false)
             }
@@ -229,7 +218,6 @@ struct TraiceWidgetView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(family == .systemSmall ? 3 : 5)
             Spacer(minLength: 0)
-            footer(CodexUsageFormatting.formatDate(checkedAt, timezone: CodexUsageFormatting.configuredTimeZone()))
         }
         .padding()
     }
@@ -250,13 +238,6 @@ struct TraiceWidgetView: View {
         }
     }
 
-    private func footer(_ text: String) -> some View {
-        Text("Checked \(text)")
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-    }
 }
 
 private struct UsageMeter: View {

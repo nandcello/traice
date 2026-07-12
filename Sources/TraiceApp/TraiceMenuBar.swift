@@ -27,7 +27,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var timer: Timer?
     private var refreshTask: Task<Void, Never>?
-    private var lastRefreshStartedAt: Date?
     private var lastSuccessfulSnapshot: CodexUsageSnapshot?
     private var lastCursorSnapshot: CursorUsageSnapshot?
     private var lastDisplaySignature: String?
@@ -79,7 +78,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let startedAt = Date()
-        lastRefreshStartedAt = startedAt
         menuBarState.beginRefresh(showLoading: showLoading)
         statusItem.button?.title = menuBarState.title
         refreshTask?.cancel()
@@ -108,9 +106,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         let display = CodexUsageDisplay(snapshot: snapshot, now: Date())
         let cursorDisplay = cursor.map { CursorUsageDisplay(snapshot: $0, now: Date()) }
         let displaySignature = [
-            display.primaryPercent,
             display.weeklyPercent,
-            display.primaryResetText,
             display.weeklyResetText,
             display.resetCreditCount.map(String.init) ?? "unknown",
             cursorDisplay?.title ?? "cursor-none",
@@ -161,8 +157,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.delegate = self
         menu.addDisabled("Traice error")
         menu.addDisabled(error.localizedDescription)
-        let checkedAt = lastRefreshStartedAt ?? Date()
-        menu.addDisabled("Last check: \(CodexUsageFormatting.formatDate(checkedAt, timezone: CodexUsageFormatting.configuredTimeZone()))")
         addFooter(to: menu)
         statusItem.menu = menu
     }
@@ -229,7 +223,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.delegate = self
         menu.addDisabled("Loading Traice...")
-        menu.addDisabled("Last check: \(CodexUsageFormatting.formatDate(Date(), timezone: CodexUsageFormatting.configuredTimeZone()))")
         addFooter(to: menu)
         statusItem.menu = menu
     }
@@ -668,7 +661,7 @@ final class MenuHeaderView: NSView {
             resetText = "none"
         }
 
-        return "5h \(display.primaryPercent)  Weekly \(display.weeklyPercent)  Reset \(resetText)"
+        return "Weekly \(display.weeklyPercent)  Reset \(resetText)"
     }
 
     private func detailsView() -> NSView {
@@ -683,7 +676,6 @@ final class MenuHeaderView: NSView {
         ])
 
         container.addArrangedSubview(sectionTitle("Usage resets"))
-        container.addArrangedSubview(detailLine("5h", display.primaryResetText))
         container.addArrangedSubview(detailLine("Weekly", display.weeklyResetText))
         container.addArrangedSubview(separator())
 
@@ -699,9 +691,6 @@ final class MenuHeaderView: NSView {
             }
         }
         container.addArrangedSubview(separator())
-
-        container.addArrangedSubview(sectionTitle("Last check"))
-        container.addArrangedSubview(detailLine(display.checkedAtText, display.checkedAtRelativeText))
         return container
     }
 
@@ -1012,15 +1001,10 @@ final class CursorMenuHeaderView: NSView {
             container.addArrangedSubview(detailLine(line.label, line.value))
         }
         container.addArrangedSubview(detailLine("Reset", display.resetText))
-        container.addArrangedSubview(detailLine("Plan", display.planText))
-        container.addArrangedSubview(detailLine("Status", display.statusText))
         if let errorText = display.errorText,
            !display.usageDetailLines.contains(where: { $0.value == errorText }) {
             container.addArrangedSubview(detailLine("Details", errorText))
         }
-        container.addArrangedSubview(separator())
-        container.addArrangedSubview(sectionTitle("Last check"))
-        container.addArrangedSubview(detailLine(display.checkedAtText, display.checkedAtRelativeText))
         return container
     }
 

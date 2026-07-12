@@ -247,11 +247,6 @@ final class MenuHeaderViewTests: XCTestCase {
                 billingCycleEnd: CursorUsageTimestamp(rawValue: "1700004600000")
             ),
             legacyUsage: nil,
-            stripe: CursorStripeResponse(
-                membershipType: "pro_plus",
-                subscriptionStatus: "active",
-                planName: nil
-            ),
             error: nil,
             checkedAt: checkedAt
         )
