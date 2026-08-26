@@ -2,7 +2,7 @@
 
 ## About
 
-Traice is a native macOS menu bar app and Notification Center widget for Codex weekly usage, Cursor usage, reset times, and reset credits.
+Traice is a native macOS menu bar app and Notification Center widget for Codex 5-hour and weekly usage, Cursor usage, reset times, and reset credits.
 
 This project is unofficial and is not affiliated with OpenAI. It reads your local Codex auth file and calls private ChatGPT/Codex usage endpoints that may change without notice.
 
@@ -10,19 +10,19 @@ This project is unofficial and is not affiliated with OpenAI. It reads your loca
 
 Widget
 <p>
-  <img src="docs/widget-preview.png" alt="Traice Notification Center widget showing weekly usage, reset times, and available reset credits with expiration times" width="420">
+  <img src="docs/widget-preview.png" alt="Traice Notification Center widget showing 5-hour and weekly usage, reset times, and available reset credits with expiration times" width="420">
 </p>
 
 Menu bar
 <p>
-  <img src="docs/menubar-preview.png" alt="Traice menu bar item showing weekly usage percentage" width="240">
+  <img src="docs/menubar-preview.png" alt="Traice menu bar item showing 5-hour and weekly usage percentages" width="240">
 </p>
 
 ## Features
 
-- Track Codex weekly usage from the macOS menu bar and Notification Center widget.
+- Track Codex 5-hour and weekly usage from the macOS menu bar and Notification Center widget.
 - Track Cursor usage from the menu bar and widget when Cursor auth is available locally.
-- See when the Codex weekly window and Cursor usage period reset, including relative times in the widget and exact timestamps in the menu bar dropdown.
+- See when the Codex 5-hour/weekly windows and Cursor usage period reset, including relative times in the widget and exact timestamps in the menu bar dropdown.
 - View available Codex reset credits and when each credit expires.
 - Refresh menu bar usage about every 30 seconds and share fresh snapshots with the widget when macOS allows it to reload.
 

@@ -106,7 +106,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         let display = CodexUsageDisplay(snapshot: snapshot, now: Date())
         let cursorDisplay = cursor.map { CursorUsageDisplay(snapshot: $0, now: Date()) }
         let displaySignature = [
+            display.primaryPercent,
             display.weeklyPercent,
+            display.primaryResetText,
             display.weeklyResetText,
             display.resetCreditCount.map(String.init) ?? "unknown",
             cursorDisplay?.title ?? "cursor-none",
@@ -661,7 +663,7 @@ final class MenuHeaderView: NSView {
             resetText = "none"
         }
 
-        return "Weekly \(display.weeklyPercent)  Reset \(resetText)"
+        return "5h \(display.primaryPercent)  Weekly \(display.weeklyPercent)  Reset \(resetText)"
     }
 
     private func detailsView() -> NSView {
@@ -676,6 +678,7 @@ final class MenuHeaderView: NSView {
         ])
 
         container.addArrangedSubview(sectionTitle("Usage resets"))
+        container.addArrangedSubview(detailLine("5h", display.primaryResetText))
         container.addArrangedSubview(detailLine("Weekly", display.weeklyResetText))
         container.addArrangedSubview(separator())
 

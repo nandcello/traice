@@ -80,6 +80,7 @@ struct TraiceWidgetView: View {
     private var placeholderView: some View {
         VStack(alignment: .leading, spacing: 10) {
             header(title: "Traice", subtitle: "Usage")
+            UsageMeter(label: "5h", percentText: "--%", value: 0.38, tint: .cyan)
             UsageMeter(label: "Weekly", percentText: "--%", value: 0.22, tint: .orange)
             UsageMeter(label: "Cursor", percentText: "--%", value: 0.18, tint: .mint)
             Spacer(minLength: 0)
@@ -108,10 +109,11 @@ struct TraiceWidgetView: View {
     private func smallContent(_ display: CodexUsageDisplay, cursor: CursorUsageDisplay?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             header(title: "Traice", subtitle: "Usage")
+            UsageMeter(label: "5h", percentText: display.primaryPercent, value: display.primaryUsageValue, tint: .cyan)
             UsageMeter(label: "Weekly", percentText: display.weeklyPercent, value: display.weeklyUsageValue, tint: .orange)
             CursorMeter(display: cursor, compact: true)
             Spacer(minLength: 0)
-            ResetLine(label: "Next", value: display.weeklyResetRelativeText)
+            ResetLine(label: "Next", value: display.primaryResetRelativeText)
         }
         .padding()
     }
@@ -120,10 +122,12 @@ struct TraiceWidgetView: View {
         VStack(alignment: .leading, spacing: 12) {
             header(title: "Traice", subtitle: "Usage")
             HStack(spacing: 16) {
+                UsageMeter(label: "5h", percentText: display.primaryPercent, value: display.primaryUsageValue, tint: .cyan)
                 UsageMeter(label: "Weekly", percentText: display.weeklyPercent, value: display.weeklyUsageValue, tint: .orange)
                 CursorMeter(display: cursor, compact: true)
             }
             VStack(alignment: .leading, spacing: 6) {
+                ResetLine(label: "5h reset", value: display.primaryResetRelativeText)
                 ResetLine(label: "Weekly reset", value: display.weeklyResetRelativeText)
                 ResetLine(label: "Cursor reset", value: cursor?.resetRelativeText ?? "unavailable")
             }
@@ -136,6 +140,7 @@ struct TraiceWidgetView: View {
         VStack(alignment: .leading, spacing: 12) {
             mediumHeader(display, cursor: cursor)
             VStack(alignment: .leading, spacing: 6) {
+                ResetLine(label: "5h reset", value: display.primaryResetText)
                 ResetLine(label: "Weekly reset", value: display.weeklyResetText)
             }
 
@@ -199,6 +204,7 @@ struct TraiceWidgetView: View {
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 16) {
+                UsageMeter(label: "5h", percentText: display.primaryPercent, value: display.primaryUsageValue, tint: .cyan)
                 UsageMeter(label: "Weekly", percentText: display.weeklyPercent, value: display.weeklyUsageValue, tint: .orange)
                 CursorMeter(display: cursor, compact: false)
             }

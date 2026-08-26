@@ -213,10 +213,15 @@ enum TraiceUsageSnapshotStore {
 }
 
 struct CodexUsageDisplay {
+    let primaryPercent: String
     let weeklyPercent: String
+    let primaryUsageValue: Double
     let weeklyUsageValue: Double
+    let primaryResetText: String
+    let primaryResetAbsoluteText: String
     let weeklyResetText: String
     let weeklyResetAbsoluteText: String
+    let primaryResetRelativeText: String
     let weeklyResetRelativeText: String
     let planType: String?
     let resetCreditCount: Int?
@@ -230,20 +235,44 @@ struct CodexUsageDisplay {
         now: Date? = nil
     ) {
         let response = snapshot.usage
-        // Codex now returns its weekly-only limit as the primary window. Keep the
-        // secondary fallback so cached snapshots from the former two-window API
-        // continue to render correctly.
-        let weekly = response.rateLimit?.primaryWindow ?? response.rateLimit?.secondaryWindow
+        let returnedPrimary = response.rateLimit?.primaryWindow
+        let returnedSecondary = response.rateLimit?.secondaryWindow
+
+        // The restored API uses primary for 5-hour usage and secondary for weekly
+        // usage. Keep weekly-only cached snapshots readable without duplicating
+        // their value into both meters.
+        let primary: UsageWindow?
+        let weekly: UsageWindow?
+        if let returnedSecondary {
+            primary = returnedPrimary
+            weekly = returnedSecondary
+        } else if returnedPrimary?.limitWindowSeconds == 18_000 {
+            primary = returnedPrimary
+            weekly = nil
+        } else {
+            primary = nil
+            weekly = returnedPrimary
+        }
+
         let displayNow = now ?? snapshot.checkedAt
+        let primaryResetDate = CodexUsageFormatting.resetDate(primary)
         let weeklyResetDate = CodexUsageFormatting.resetDate(weekly)
 
+        primaryPercent = CodexUsageFormatting.formatPercent(primary?.usedPercent)
         weeklyPercent = CodexUsageFormatting.formatPercent(weekly?.usedPercent)
+        primaryUsageValue = CodexUsageFormatting.clampedUnitValue(primary?.usedPercent)
         weeklyUsageValue = CodexUsageFormatting.clampedUnitValue(weekly?.usedPercent)
+        primaryResetAbsoluteText = CodexUsageFormatting.formatOptionalDate(primaryResetDate, timezone: timezone)
         weeklyResetAbsoluteText = CodexUsageFormatting.formatOptionalDate(weeklyResetDate, timezone: timezone)
+        primaryResetRelativeText = CodexUsageFormatting.formatOptionalRelative(
+            primaryResetDate,
+            now: displayNow
+        )
         weeklyResetRelativeText = CodexUsageFormatting.formatOptionalRelative(
             weeklyResetDate,
             now: displayNow
         )
+        primaryResetText = "\(primaryResetAbsoluteText) (\(primaryResetRelativeText))"
         weeklyResetText = "\(weeklyResetAbsoluteText) (\(weeklyResetRelativeText))"
         planType = response.planType
         resetCreditCount = snapshot.resetCreditList?.availableCount ?? response.resetCredits?.availableCount
@@ -598,16 +627,16 @@ struct CursorUsageDisplay {
 }
 
 enum CodexUsageMenuBarPresentation {
-    static let placeholderTitle = "W --"
-    static let loadingTitle = "W ..."
-    static let errorTitle = "W ?"
+    static let placeholderTitle = "5h -- W --"
+    static let loadingTitle = "5h ... W ..."
+    static let errorTitle = "5h ? W ?"
 
     static func title(for display: CodexUsageDisplay) -> String {
-        "W \(display.weeklyPercent)"
+        "5h \(display.primaryPercent) W \(display.weeklyPercent)"
     }
 
     static func toolTip(for display: CodexUsageDisplay) -> String {
-        "Codex weekly usage: \(display.weeklyPercent)"
+        "Codex usage: 5h \(display.primaryPercent), weekly \(display.weeklyPercent)"
     }
 }
 

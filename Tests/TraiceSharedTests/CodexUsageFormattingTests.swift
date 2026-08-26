@@ -3,6 +3,7 @@ import XCTest
 final class CodexUsageFormattingTests: XCTestCase {
     private func sampleSnapshot(
         checkedAt: Date,
+        primaryPercent: Double = 6.4,
         weeklyPercent: Double = 8.2
     ) -> CodexUsageSnapshot {
         CodexUsageSnapshot(
@@ -12,12 +13,17 @@ final class CodexUsageFormattingTests: XCTestCase {
                     allowed: true,
                     limitReached: false,
                     primaryWindow: UsageWindow(
+                        usedPercent: primaryPercent,
+                        limitWindowSeconds: 18_000,
+                        resetAfterSeconds: 3_600,
+                        resetAt: 1_004_600
+                    ),
+                    secondaryWindow: UsageWindow(
                         usedPercent: weeklyPercent,
                         limitWindowSeconds: 604_800,
                         resetAfterSeconds: 86_400,
                         resetAt: 1_087_000
-                    ),
-                    secondaryWindow: nil
+                    )
                 ),
                 resetCredits: ResetCredits(availableCount: 1)
             ),
@@ -88,7 +94,10 @@ final class CodexUsageFormattingTests: XCTestCase {
             now: snapshot.checkedAt
         )
 
+        XCTAssertEqual(display.primaryPercent, "6%")
         XCTAssertEqual(display.weeklyPercent, "8%")
+        XCTAssertEqual(display.primaryResetAbsoluteText, "Jan 12, 15:03")
+        XCTAssertEqual(display.primaryResetRelativeText, "in 1h 16m")
         XCTAssertEqual(display.planType, "pro")
         XCTAssertEqual(display.resetCreditCount, 1)
         XCTAssertEqual(display.creditSummaries.count, 1)
@@ -100,7 +109,7 @@ final class CodexUsageFormattingTests: XCTestCase {
         XCTAssertEqual(display.soonestResetCreditExpirationRelativeText, "in 11562d 13h")
     }
 
-    func testDisplayFallsBackToLegacySecondaryWeeklyWindow() {
+    func testDisplaySupportsWeeklyOnlyPrimaryWindow() {
         let checkedAt = Date(timeIntervalSince1970: 1_000_000)
         let snapshot = CodexUsageSnapshot(
             usage: UsageResponse(
@@ -108,13 +117,13 @@ final class CodexUsageFormattingTests: XCTestCase {
                 rateLimit: RateLimit(
                     allowed: true,
                     limitReached: false,
-                    primaryWindow: nil,
-                    secondaryWindow: UsageWindow(
+                    primaryWindow: UsageWindow(
                         usedPercent: 42,
                         limitWindowSeconds: 604_800,
                         resetAfterSeconds: 86_400,
                         resetAt: 1_087_000
-                    )
+                    ),
+                    secondaryWindow: nil
                 ),
                 resetCredits: nil
             ),
@@ -125,6 +134,7 @@ final class CodexUsageFormattingTests: XCTestCase {
 
         let display = CodexUsageDisplay(snapshot: snapshot, now: checkedAt)
 
+        XCTAssertEqual(display.primaryPercent, "--%")
         XCTAssertEqual(display.weeklyPercent, "42%")
         XCTAssertEqual(display.weeklyUsageValue, 0.42)
     }
@@ -168,6 +178,7 @@ final class CodexUsageFormattingTests: XCTestCase {
         let initialDisplay = CodexUsageDisplay(
             snapshot: sampleSnapshot(
                 checkedAt: Date(timeIntervalSince1970: 1_000_000),
+                primaryPercent: 6.4,
                 weeklyPercent: 8.2
             ),
             timezone: TimeZone(secondsFromGMT: 0)!,
@@ -176,6 +187,7 @@ final class CodexUsageFormattingTests: XCTestCase {
         let updatedDisplay = CodexUsageDisplay(
             snapshot: sampleSnapshot(
                 checkedAt: Date(timeIntervalSince1970: 1_000_030),
+                primaryPercent: 12.4,
                 weeklyPercent: 18.5
             ),
             timezone: TimeZone(secondsFromGMT: 0)!,
@@ -183,16 +195,16 @@ final class CodexUsageFormattingTests: XCTestCase {
         )
 
         state.render(initialDisplay)
-        XCTAssertEqual(state.title, "W 8%")
+        XCTAssertEqual(state.title, "5h 6% W 8%")
 
         state.beginRefresh(showLoading: true)
-        XCTAssertEqual(state.title, "W 8%")
+        XCTAssertEqual(state.title, "5h 6% W 8%")
 
         state.renderError()
-        XCTAssertEqual(state.title, "W 8%")
+        XCTAssertEqual(state.title, "5h 6% W 8%")
 
         state.render(updatedDisplay)
-        XCTAssertEqual(state.title, "W 19%")
+        XCTAssertEqual(state.title, "5h 12% W 19%")
     }
 
     func testCursorDisplayUsesCurrentPeriodPlanUsagePools() throws {
@@ -334,7 +346,7 @@ final class CodexUsageFormattingTests: XCTestCase {
 
         XCTAssertEqual(loaded.checkedAt, snapshot.checkedAt)
         XCTAssertEqual(loaded.usage.planType, "pro")
-        XCTAssertEqual(loaded.usage.rateLimit?.primaryWindow?.usedPercent, 8.2)
+        XCTAssertEqual(loaded.usage.rateLimit?.primaryWindow?.usedPercent, 6.4)
         XCTAssertEqual(loaded.resetCreditList?.availableCount, 1)
         XCTAssertEqual(loaded.resetCreditList?.credits?.first?.status, "available")
     }
