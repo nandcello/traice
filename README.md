@@ -20,7 +20,7 @@ Menu bar
 
 ## Features
 
-- Track Codex 5-hour and weekly usage from the macOS menu bar and Notification Center widget.
+- Track Codex weekly usage from the macOS menu bar and Notification Center widget, plus 5-hour usage on Plus and lower plans (higher tiers have no 5-hour limit, so it is hidden).
 - Track Cursor usage from the menu bar and widget when Cursor auth is available locally.
 - See when the Codex 5-hour/weekly windows and Cursor usage period reset, including relative times in the widget and exact timestamps in the menu bar dropdown.
 - View available Codex reset credits and when each credit expires.

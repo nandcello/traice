@@ -213,6 +213,7 @@ enum TraiceUsageSnapshotStore {
 }
 
 struct CodexUsageDisplay {
+    let showsFiveHourUsage: Bool
     let primaryPercent: String
     let weeklyPercent: String
     let primaryUsageValue: Double
@@ -253,6 +254,10 @@ struct CodexUsageDisplay {
             primary = nil
             weekly = returnedPrimary
         }
+
+        // Only Plus and lower plans have a 5-hour limit; higher tiers are
+        // weekly-only, so their 5h meter is hidden rather than shown empty.
+        showsFiveHourUsage = !CodexPlan.isWeeklyOnly(response.planType)
 
         let displayNow = now ?? snapshot.checkedAt
         let primaryResetDate = CodexUsageFormatting.resetDate(primary)
@@ -626,17 +631,38 @@ struct CursorUsageDisplay {
     }
 }
 
+enum CodexPlan {
+    private static let weeklyOnlyPlanTypes: Set<String> = [
+        "pro",
+        "team",
+        "business",
+        "enterprise",
+        "edu"
+    ]
+
+    static func isWeeklyOnly(_ planType: String?) -> Bool {
+        guard let planType else { return false }
+        return weeklyOnlyPlanTypes.contains(planType.lowercased())
+    }
+}
+
 enum CodexUsageMenuBarPresentation {
-    static let placeholderTitle = "5h -- W --"
-    static let loadingTitle = "5h ... W ..."
-    static let errorTitle = "5h ? W ?"
+    static let placeholderTitle = "W --"
+    static let loadingTitle = "W ..."
+    static let errorTitle = "W ?"
 
     static func title(for display: CodexUsageDisplay) -> String {
-        "5h \(display.primaryPercent) W \(display.weeklyPercent)"
+        guard display.showsFiveHourUsage else {
+            return "W \(display.weeklyPercent)"
+        }
+        return "5h \(display.primaryPercent) W \(display.weeklyPercent)"
     }
 
     static func toolTip(for display: CodexUsageDisplay) -> String {
-        "Codex usage: 5h \(display.primaryPercent), weekly \(display.weeklyPercent)"
+        guard display.showsFiveHourUsage else {
+            return "Codex weekly usage: \(display.weeklyPercent)"
+        }
+        return "Codex usage: 5h \(display.primaryPercent), weekly \(display.weeklyPercent)"
     }
 }
 

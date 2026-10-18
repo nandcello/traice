@@ -3,12 +3,13 @@ import XCTest
 final class CodexUsageFormattingTests: XCTestCase {
     private func sampleSnapshot(
         checkedAt: Date,
+        planType: String = "plus",
         primaryPercent: Double = 6.4,
         weeklyPercent: Double = 8.2
     ) -> CodexUsageSnapshot {
         CodexUsageSnapshot(
             usage: UsageResponse(
-                planType: "pro",
+                planType: planType,
                 rateLimit: RateLimit(
                     allowed: true,
                     limitReached: false,
@@ -98,7 +99,8 @@ final class CodexUsageFormattingTests: XCTestCase {
         XCTAssertEqual(display.weeklyPercent, "8%")
         XCTAssertEqual(display.primaryResetAbsoluteText, "Jan 12, 15:03")
         XCTAssertEqual(display.primaryResetRelativeText, "in 1h 16m")
-        XCTAssertEqual(display.planType, "pro")
+        XCTAssertTrue(display.showsFiveHourUsage)
+        XCTAssertEqual(display.planType, "plus")
         XCTAssertEqual(display.resetCreditCount, 1)
         XCTAssertEqual(display.creditSummaries.count, 1)
         XCTAssertEqual(display.creditSummaries[0].status, "available")
@@ -205,6 +207,43 @@ final class CodexUsageFormattingTests: XCTestCase {
 
         state.render(updatedDisplay)
         XCTAssertEqual(state.title, "5h 12% W 19%")
+    }
+
+    func testHigherCodexPlansHideFiveHourUsage() {
+        for planType in ["pro", "Team", "business", "enterprise", "edu"] {
+            let display = CodexUsageDisplay(
+                snapshot: sampleSnapshot(
+                    checkedAt: Date(timeIntervalSince1970: 1_000_000),
+                    planType: planType
+                ),
+                timezone: TimeZone(secondsFromGMT: 0)!,
+                now: Date(timeIntervalSince1970: 1_000_000)
+            )
+
+            XCTAssertFalse(display.showsFiveHourUsage, planType)
+            XCTAssertEqual(CodexUsageMenuBarPresentation.title(for: display), "W 8%", planType)
+            XCTAssertEqual(
+                CodexUsageMenuBarPresentation.toolTip(for: display),
+                "Codex weekly usage: 8%",
+                planType
+            )
+        }
+    }
+
+    func testPlusAndLowerCodexPlansShowFiveHourUsage() {
+        for planType in ["free", "go", "plus"] {
+            let display = CodexUsageDisplay(
+                snapshot: sampleSnapshot(
+                    checkedAt: Date(timeIntervalSince1970: 1_000_000),
+                    planType: planType
+                ),
+                timezone: TimeZone(secondsFromGMT: 0)!,
+                now: Date(timeIntervalSince1970: 1_000_000)
+            )
+
+            XCTAssertTrue(display.showsFiveHourUsage, planType)
+            XCTAssertEqual(CodexUsageMenuBarPresentation.title(for: display), "5h 6% W 8%", planType)
+        }
     }
 
     func testCursorDisplayUsesCurrentPeriodPlanUsagePools() throws {
@@ -345,7 +384,7 @@ final class CodexUsageFormattingTests: XCTestCase {
         let loaded = try CodexUsageSnapshotStore.loadSnapshot(from: url)
 
         XCTAssertEqual(loaded.checkedAt, snapshot.checkedAt)
-        XCTAssertEqual(loaded.usage.planType, "pro")
+        XCTAssertEqual(loaded.usage.planType, "plus")
         XCTAssertEqual(loaded.usage.rateLimit?.primaryWindow?.usedPercent, 6.4)
         XCTAssertEqual(loaded.resetCreditList?.availableCount, 1)
         XCTAssertEqual(loaded.resetCreditList?.credits?.first?.status, "available")
